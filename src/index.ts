@@ -1,0 +1,296 @@
+#!/usr/bin/env node
+
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
+import { createServer } from 'http';
+
+import { recommendCardsSchema, recommendCards } from './tools/recommend.js';
+import { cardDetailsSchema, getCardDetails } from './tools/cardDetails.js';
+import { listCardsSchema, listCards } from './tools/listCards.js';
+import { compareCardsSchema, compareCards } from './tools/compare.js';
+import { checkEligibilitySchema, checkEligibility } from './tools/eligibility.js';
+import { cache } from './cache/cache.js';
+
+// Load .env if present
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
+try {
+  const envPath = resolve(process.cwd(), '.env');
+  const envContent = readFileSync(envPath, 'utf-8');
+  for (const line of envContent.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eqIdx = trimmed.indexOf('=');
+    if (eqIdx === -1) continue;
+    const key = trimmed.slice(0, eqIdx).trim();
+    const value = trimmed.slice(eqIdx + 1).trim();
+    if (!process.env[key]) {
+      process.env[key] = value;
+    }
+  }
+} catch {
+  // No .env file — rely on environment variables
+}
+
+function createMcpServer() {
+  const server = new McpServer({
+    name: 'great-cards',
+    version: '1.1.0',
+    description: 'Great.Cards — AI-powered credit card recommendations for the Indian market. Compare 100+ cards, get personalized recommendations based on spending patterns, check eligibility, and find the best card for any use case.',
+  });
+
+  // ── Tool: recommend_cards ──────────────────────────────────────────────
+  server.tool(
+    'recommend_cards',
+    `PERSONALIZED credit card recommendations based on the user's actual spending pattern.
+Analyzes 100+ Indian credit cards and ranks by NET ANNUAL SAVINGS (rewards earned + lounge value + milestone benefits − joining fee − annual fee).
+
+WHEN TO USE: User provides specific spending amounts OR mentions brands/categories they spend on.
+WHEN NOT TO USE: User just wants to browse cards without spending context → use list_cards instead.
+
+SPENDING KEY MAPPING (CRITICAL — map user mentions to correct keys):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• amazon_spends → Amazon.in ONLY
+• flipkart_spends → Flipkart ONLY
+• other_online_spends → ALL other e-commerce: Myntra, Meesho, Nykaa, Ajio, Tata CLiQ, Croma online, BookMyShow, Ola, Uber rides, PharmEasy, NetMeds, 1mg, Lenskart, Pepperfry, Urban Company, CRED bills, subscription boxes
+• other_offline_spends → Physical store purchases: malls, retail, electronics stores, local markets, salons, gyms, medical stores, any POS/tap/swipe
+• grocery_spends_online → Online grocery ONLY: BigBasket, Blinkit, Zepto, Swiggy Instamart, JioMart, Amazon Fresh, Flipkart Grocery, DMart Ready
+• online_food_ordering → Food DELIVERY: Swiggy (food, not Instamart), Zomato, EatSure, Dominos/Pizza Hut online orders
+• fuel → Petrol pumps: HP, Indian Oil, BPCL, Shell, Nayara, Reliance
+• dining_or_going_out → IN-PERSON restaurants, cafes (Starbucks, CCD, Third Wave), bars, pubs, food courts
+• flights_annual → ANNUAL flight spend (all airlines, all booking platforms) — convert monthly×12
+• hotels_annual → ANNUAL hotel/stay spend (hotels, Airbnb, OYO) — convert monthly×12
+• domestic_lounge_usage_quarterly → Domestic lounge visits PER QUARTER — "fly 4x/year" = 1/quarter
+• international_lounge_usage_quarterly → International lounge visits PER QUARTER
+• mobile_phone_bills → Jio, Airtel, Vi, BSNL monthly bills
+• electricity_bills → Monthly electricity bill
+• water_bills → Monthly water bill
+• insurance_health_annual → ANNUAL health insurance premium — convert monthly×12
+• insurance_car_or_bike_annual → ANNUAL vehicle insurance — convert monthly×12
+• rent → Monthly rent (via CRED RentPay, NoBroker, etc.)
+• school_fees → Monthly education fees (school, coaching, college)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+VAGUE QUERY HANDLING:
+• "best card for shopping" → ask what they buy and where, OR estimate: amazon_spends=5000, flipkart_spends=3000, other_online_spends=5000
+• "premium card" → suggest high spenders profile: flights_annual=100000, hotels_annual=50000, dining=10000, domestic_lounge_usage_quarterly=3
+• "I spend a lot on food" → clarify: delivery (online_food_ordering) vs dining out (dining_or_going_out) vs groceries (grocery_spends_online)
+• "cashback card" → focus on the user's biggest spending categories for maximum net savings
+• "travel card" → ask about flights, hotels, lounges; these drive the biggest travel card differentiation
+
+IMPORTANT UNITS:
+• Most fields are MONTHLY amounts in ₹
+• flights_annual, hotels_annual, insurance_* are ANNUAL — multiply monthly by 12
+• lounge fields are PER QUARTER — divide annual visits by 4
+• All fee outputs include 18% GST`,
+    recommendCardsSchema.shape,
+    async (input) => {
+      try {
+        const result = await recommendCards(recommendCardsSchema.parse(input));
+        return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+      } catch (err: any) {
+        return { content: [{ type: 'text' as const, text: `Error: ${err.message}` }], isError: true };
+      }
+    }
+  );
+
+  // ── Tool: get_card_details ─────────────────────────────────────────────
+  server.tool(
+    'get_card_details',
+    `Get FULL details of a specific credit card by its alias/slug.
+Returns: fees (with 18% GST), all benefits, rewards structure, eligibility, ratings.
+
+WHEN TO USE: After recommend_cards or list_cards, when the user wants to deep-dive into a specific card.
+ALSO USE WHEN: User names a specific card like "tell me about HDFC Regalia" — construct the alias as lowercase-hyphenated bank-card-name (e.g. "hdfc-regalia-gold-credit-card").
+
+COMMON CARD ALIAS PATTERNS:
+• HDFC cards: hdfc-regalia-gold-credit-card, hdfc-infinia-credit-card, hdfc-diners-club-black, hdfc-swiggy-credit-card
+• Axis cards: axis-magnus-credit-card, axis-flipkart-credit-card, axis-ace-credit-card, axis-privilege-amex-credit-card
+• SBI cards: sbi-cashback-credit-card, sbi-elite-credit-card, sbi-simplyclick-credit-card
+• ICICI cards: icici-amazon-pay-credit-card, icici-sapphiro-credit-card, icici-emeralde-credit-card
+• Others: au-lit-credit-card, idfc-first-millennia-credit-card, onecard-credit-card, scapia-credit-card
+
+If unsure of exact alias, use list_cards to find it first.`,
+    cardDetailsSchema.shape,
+    async (input) => {
+      try {
+        const result = await getCardDetails(cardDetailsSchema.parse(input));
+        return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+      } catch (err: any) {
+        return { content: [{ type: 'text' as const, text: `Error: ${err.message}` }], isError: true };
+      }
+    }
+  );
+
+  // ── Tool: list_cards ───────────────────────────────────────────────────
+  server.tool(
+    'list_cards',
+    `Browse and filter credit cards without needing spending data.
+
+WHEN TO USE: User wants to explore/discover cards, asks about a category, or hasn't shared spending details.
+WHEN NOT TO USE: User has given spending amounts → use recommend_cards for personalized ranking.
+
+CATEGORY MAPPING (map user intent to category slug):
+• "premium" / "luxury" / "lounge access" / "travel" / "airport" → best-travel-credit-card
+• "shopping" / "cashback" / "online shopping" / "rewards" → best-shopping-credit-card
+• "fuel" / "petrol" / "diesel" / "fuel surcharge" → best-fuel-credit-card
+• "dining" / "restaurant" / "food" (in-person) / "Starbucks" → best-dining-credit-card
+• "grocery" / "BigBasket" / "Blinkit" / "Zepto" → best-cards-grocery-shopping
+• "Swiggy" / "Zomato" / "food delivery" → online-food-ordering
+• "utility" / "bills" / "recharge" / "electricity" → best-utility-credit-card
+• "all cards" / no specific category → leave empty
+
+USER INTENT → FILTER MAPPING:
+• "free card" / "no fee" / "LTF" / "lifetime free" / "no annual charge" → free_cards="true"
+• "Amex" / "American Express" → card_networks=["American Express"]
+• "works internationally" → card_networks=["Visa"] or ["Mastercard"]
+• "RuPay" / "UPI linked" → card_networks=["RuPay"]
+• "budget card" / "entry level" → annual_fees="0-500" or free_cards="true"
+• "super premium" / "invite only" → annual_fees="10000+"
+• "HDFC card" / "Axis card" etc → use bank_ids if known, otherwise suggest using recommend_cards
+
+COMMON FOLLOW-UP: After listing, user often picks a card → use get_card_details for the deep dive.`,
+    listCardsSchema.shape,
+    async (input) => {
+      try {
+        const result = await listCards(listCardsSchema.parse(input));
+        return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+      } catch (err: any) {
+        return { content: [{ type: 'text' as const, text: `Error: ${err.message}` }], isError: true };
+      }
+    }
+  );
+
+  // ── Tool: compare_cards ────────────────────────────────────────────────
+  server.tool(
+    'compare_cards',
+    `Compare 2-3 credit cards side by side.
+
+WHEN TO USE: User is deciding between specific cards, says "X vs Y", or asks "which is better".
+REQUIRES: card_aliases from previous recommend_cards or list_cards results.
+
+Present the comparison highlighting the differences that matter for the user's use case.
+Common comparisons: HDFC Regalia vs Axis Magnus, SBI Cashback vs ICICI Amazon Pay, HDFC Swiggy vs Axis Flipkart.`,
+    compareCardsSchema.shape,
+    async (input) => {
+      try {
+        const result = await compareCards(compareCardsSchema.parse(input));
+        return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+      } catch (err: any) {
+        return { content: [{ type: 'text' as const, text: `Error: ${err.message}` }], isError: true };
+      }
+    }
+  );
+
+  // ── Tool: check_eligibility ────────────────────────────────────────────
+  server.tool(
+    'check_eligibility',
+    `Check which cards a user can actually APPLY for based on pincode, income, and employment.
+
+WHEN TO USE: User asks "can I get this card?", "which cards am I eligible for?", "I earn X, what can I get?", or before recommending cards to someone with a stated income.
+
+INCOME CONVERSION (users state income in many ways):
+• "50k/month" or "50k per month" → annual_income = "600000"
+• "10 LPA" or "10 lakhs per annum" → annual_income = "1000000"
+• "1.5L/month" → annual_income = "1800000"
+• "8 lakhs" (ambiguous) → likely annual, so "800000"
+
+EMPLOYMENT MAPPING:
+• Salaried: full-time, part-time, contract workers, government employees
+• Self-employed: freelancers, business owners, consultants, doctors/lawyers/CAs with own practice, gig workers, YouTubers, influencers
+
+IDEAL FLOW: check_eligibility first → then recommend_cards with spending to find the BEST eligible card.`,
+    checkEligibilitySchema.shape,
+    async (input) => {
+      try {
+        const result = await checkEligibility(checkEligibilitySchema.parse(input));
+        return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+      } catch (err: any) {
+        return { content: [{ type: 'text' as const, text: `Error: ${err.message}` }], isError: true };
+      }
+    }
+  );
+
+  // ── Resource: cache stats ──────────────────────────────────────────────
+  server.resource(
+    'cache-stats',
+    'greatcards://cache/stats',
+    async () => ({
+      contents: [{
+        uri: 'greatcards://cache/stats',
+        mimeType: 'application/json',
+        text: JSON.stringify(cache.stats(), null, 2),
+      }],
+    })
+  );
+
+  return server;
+}
+
+// ── Start ──────────────────────────────────────────────────────────────
+async function main() {
+  const mode = process.env.MCP_TRANSPORT || 'stdio';
+  const server = createMcpServer();
+
+  if (mode === 'sse') {
+    const port = Number(process.env.PORT) || 3100;
+    let sseTransport: SSEServerTransport | null = null;
+
+    const httpServer = createServer(async (req, res) => {
+      // CORS headers for remote clients
+      res.setHeader('Access-Control-Allow-Origin', process.env.CORS_ORIGIN || '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+      if (req.method === 'OPTIONS') {
+        res.writeHead(204);
+        res.end();
+        return;
+      }
+
+      // Health check
+      if (req.url === '/health') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ok', server: 'great-cards', version: '1.1.0', cache: cache.stats() }));
+        return;
+      }
+
+      // SSE endpoint — clients connect here
+      if (req.url === '/sse' && req.method === 'GET') {
+        sseTransport = new SSEServerTransport('/messages', res);
+        await server.connect(sseTransport);
+        return;
+      }
+
+      // Message endpoint — clients POST tool calls here
+      if (req.url === '/messages' && req.method === 'POST') {
+        if (!sseTransport) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'No active SSE connection. Connect to /sse first.' }));
+          return;
+        }
+        await sseTransport.handlePostMessage(req, res);
+        return;
+      }
+
+      res.writeHead(404);
+      res.end('Not found');
+    });
+
+    httpServer.listen(port, () => {
+      console.error(`[great-cards] MCP server running on SSE at http://0.0.0.0:${port}`);
+      console.error(`[great-cards] Connect: GET /sse | Messages: POST /messages | Health: GET /health`);
+    });
+  } else {
+    // Default: stdio transport (for Claude Desktop, Claude Code, local MCP clients)
+    const transport = new StdioServerTransport();
+    await server.connect(transport);
+    console.error('[great-cards] MCP server running on stdio');
+  }
+}
+
+main().catch((err) => {
+  console.error('[great-cards] Fatal error:', err);
+  process.exit(1);
+});

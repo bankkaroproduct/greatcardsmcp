@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: greatcards-mcp-server
+    runtime: node
+    plan: starter
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: MCP_TRANSPORT
+        value: sse
+      - key: PORT
+        value: "3100"
+      - key: PARTNER_API_KEY
+        sync: false
+      - key: PARTNER_TOKEN_URL
+        value: https://uat-platform.bankkaro.com/partner/token
+      - key: PARTNER_BASE_URL
+        value: https://uat-platform.bankkaro.com/partner
+      - key: CACHE_TTL_HOURS
+        value: "168"

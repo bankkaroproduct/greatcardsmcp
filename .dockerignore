@@ -1,0 +1,7 @@
+node_modules
+src
+.env
+.env.local
+test-bot.ts
+tsconfig.json
+.git
