@@ -1,0 +1,20 @@
+{
+  "gc_live_acmebot_a1b2c3": {
+    "name": "Acme Bot",
+    "partnerApiKey": "34b88b71160a7dd8c451f4a806b756506a3048cf239cb4d98e9f16918feda2ac",
+    "rateLimit": 30,
+    "enabled": true
+  },
+  "gc_live_finbot_d4e5f6": {
+    "name": "FinBot Inc",
+    "partnerApiKey": "34b88b71160a7dd8c451f4a806b756506a3048cf239cb4d98e9f16918feda2ac",
+    "rateLimit": 60,
+    "enabled": true
+  },
+  "gc_internal_team_x7y8z9": {
+    "name": "Great.Cards Internal",
+    "partnerApiKey": "34b88b71160a7dd8c451f4a806b756506a3048cf239cb4d98e9f16918feda2ac",
+    "rateLimit": 120,
+    "enabled": true
+  }
+}

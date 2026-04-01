@@ -3,8 +3,10 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
-import { createServer } from 'http';
+import { createServer, type IncomingMessage, type ServerResponse } from 'http';
+import { URL } from 'url';
 
+import { clientAuth } from './auth/clientAuth.js';
 import { recommendCardsSchema, recommendCards } from './tools/recommend.js';
 import { cardDetailsSchema, getCardDetails } from './tools/cardDetails.js';
 import { listCardsSchema, listCards } from './tools/listCards.js';
@@ -235,7 +237,29 @@ async function main() {
 
   if (mode === 'sse') {
     const port = Number(process.env.PORT) || 3100;
-    let sseTransport: SSEServerTransport | null = null;
+
+    // Track active SSE sessions by client key
+    const sessions = new Map<string, { transport: SSEServerTransport; server: McpServer; clientName: string }>();
+
+    function extractApiKey(req: IncomingMessage): string | null {
+      // Check Authorization header: "Bearer gc_live_xxx"
+      const authHeader = req.headers.authorization;
+      if (authHeader?.startsWith('Bearer ')) {
+        return authHeader.slice(7).trim();
+      }
+      // Check query param: ?api_key=gc_live_xxx
+      try {
+        const url = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
+        return url.searchParams.get('api_key');
+      } catch {
+        return null;
+      }
+    }
+
+    function sendJSON(res: ServerResponse, status: number, body: object) {
+      res.writeHead(status, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(body));
+    }
 
     const httpServer = createServer(async (req, res) => {
       // CORS headers for remote clients
@@ -249,28 +273,76 @@ async function main() {
         return;
       }
 
-      // Health check
-      if (req.url === '/health') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ status: 'ok', server: 'great-cards', version: '1.1.0', cache: cache.stats() }));
+      // Health check (no auth required)
+      if (req.url?.startsWith('/health')) {
+        sendJSON(res, 200, {
+          status: 'ok',
+          server: 'great-cards',
+          version: '1.1.0',
+          auth_enabled: clientAuth.isEnabled,
+          active_sessions: sessions.size,
+          cache: cache.stats(),
+        });
         return;
       }
 
+      // ── Auth check for all other endpoints ──
+      const apiKey = extractApiKey(req);
+      const client = clientAuth.authenticate(apiKey);
+
+      if (!client) {
+        sendJSON(res, 401, {
+          error: 'Unauthorized',
+          message: clientAuth.isEnabled
+            ? 'Invalid or missing API key. Pass via Authorization: Bearer <key> or ?api_key=<key>'
+            : 'Auth system error',
+        });
+        return;
+      }
+
+      if (!clientAuth.checkRateLimit(apiKey || 'default', client.rateLimit)) {
+        sendJSON(res, 429, {
+          error: 'Rate limited',
+          message: `Max ${client.rateLimit || 60} requests/minute. Try again shortly.`,
+        });
+        return;
+      }
+
+      // Set the partner API key for this client's requests
+      // This overrides the env var so the API client uses the right key
+      process.env.PARTNER_API_KEY = client.partnerApiKey;
+
       // SSE endpoint — clients connect here
-      if (req.url === '/sse' && req.method === 'GET') {
-        sseTransport = new SSEServerTransport('/messages', res);
-        await server.connect(sseTransport);
+      const urlPath = req.url?.split('?')[0]; // strip query params
+
+      if (urlPath === '/sse' && req.method === 'GET') {
+        const sessionServer = createMcpServer();
+        const sseTransport = new SSEServerTransport('/messages', res);
+        const sessionId = apiKey || `anon_${Date.now()}`;
+
+        sessions.set(sessionId, { transport: sseTransport, server: sessionServer, clientName: client.name });
+        console.error(`[great-cards] SSE session started: ${client.name} (${sessions.size} active)`);
+
+        // Clean up on disconnect
+        res.on('close', () => {
+          sessions.delete(sessionId);
+          console.error(`[great-cards] SSE session ended: ${client.name} (${sessions.size} active)`);
+        });
+
+        await sessionServer.connect(sseTransport);
         return;
       }
 
       // Message endpoint — clients POST tool calls here
-      if (req.url === '/messages' && req.method === 'POST') {
-        if (!sseTransport) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'No active SSE connection. Connect to /sse first.' }));
+      if (urlPath === '/messages' && req.method === 'POST') {
+        // Find the session for this client
+        const sessionId = apiKey || 'default';
+        const session = sessions.get(sessionId);
+        if (!session) {
+          sendJSON(res, 400, { error: 'No active SSE connection. Connect to /sse first.' });
           return;
         }
-        await sseTransport.handlePostMessage(req, res);
+        await session.transport.handlePostMessage(req, res);
         return;
       }
 
@@ -280,6 +352,7 @@ async function main() {
 
     httpServer.listen(port, () => {
       console.error(`[great-cards] MCP server running on SSE at http://0.0.0.0:${port}`);
+      console.error(`[great-cards] Auth: ${clientAuth.isEnabled ? 'ENABLED' : 'DISABLED (using default key)'}`);
       console.error(`[great-cards] Connect: GET /sse | Messages: POST /messages | Health: GET /health`);
     });
   } else {
