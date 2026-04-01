@@ -232,7 +232,7 @@ IDEAL FLOW: check_eligibility first → then recommend_cards with spending to fi
 
 // ── Start ──────────────────────────────────────────────────────────────
 async function main() {
-  const mode = process.env.MCP_TRANSPORT || 'stdio';
+  const mode = (process.env.MCP_TRANSPORT || 'stdio').toLowerCase();
   const server = createMcpServer();
 
   if (mode === 'sse') {
