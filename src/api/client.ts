@@ -92,8 +92,20 @@ export const apiClient = {
   },
 
   calculateCardGenius(spendingData: SpendingData) {
+    // Roll non-API keys into their closest API-supported counterparts
+    const { offline_grocery, life_insurance, ...coreSpending } = spendingData;
+
+    // offline_grocery → merge into other_offline_spends (physical store purchases)
+    if (offline_grocery) {
+      coreSpending.other_offline_spends = (coreSpending.other_offline_spends || 0) + offline_grocery;
+    }
+    // life_insurance → merge into insurance_health_annual (closest insurance bucket)
+    if (life_insurance) {
+      coreSpending.insurance_health_annual = (coreSpending.insurance_health_annual || 0) + life_insurance;
+    }
+
     // Ensure all fields are present (UAT requires every field)
-    const fullPayload: SpendingData = {
+    const fullPayload: Omit<SpendingData, 'offline_grocery' | 'life_insurance'> = {
       amazon_spends: 0,
       flipkart_spends: 0,
       other_online_spends: 0,
@@ -113,9 +125,7 @@ export const apiClient = {
       insurance_car_or_bike_annual: 0,
       rent: 0,
       school_fees: 0,
-      offline_grocery: 0,
-      life_insurance: 0,
-      ...spendingData,
+      ...coreSpending,
     };
     const key = `calc:${JSON.stringify(fullPayload)}`;
     return apiPost<any>('/cardgenius/calculate', fullPayload, key);
