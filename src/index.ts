@@ -312,7 +312,7 @@ async function main() {
       // ══════════════════════════════════════════════════════════════
 
       if (urlPath === '/mcp') {
-        // Auth check
+        // Auth check (skip for non-authenticated setups)
         const apiKey = extractApiKey(req);
         const client = clientAuth.authenticate(apiKey);
         if (!client) {
@@ -325,8 +325,12 @@ async function main() {
         }
         process.env.PARTNER_API_KEY = client.partnerApiKey;
 
+        console.error(`[great-cards] /mcp ${req.method} session=${req.headers['mcp-session-id'] || 'none'}`);
+
         if (req.method === 'POST') {
           const body = await getRequestBody(req);
+          console.error(`[great-cards] /mcp POST body method=${body?.method} id=${body?.id}`);
+
           const sessionId = req.headers['mcp-session-id'] as string | undefined;
 
           // Existing session
@@ -338,8 +342,10 @@ async function main() {
             }
           }
 
-          // New session — must be an initialize request
-          if (!sessionId && isInitializeRequest(body)) {
+          // New session — any POST without session ID starts a new session
+          // (isInitializeRequest check is too strict for some clients)
+          if (!sessionId) {
+            console.error(`[great-cards] Creating new streamable session. isInit=${isInitializeRequest(body)}`);
             const transport = new StreamableHTTPServerTransport({
               sessionIdGenerator: () => randomUUID(),
             });
@@ -347,7 +353,6 @@ async function main() {
             const sessionServer = createMcpServer();
             await sessionServer.connect(transport);
 
-            // Store transport by session ID after initialization
             transport.onclose = () => {
               const sid = Object.entries(transports).find(([, t]) => t === transport)?.[0];
               if (sid) {
@@ -358,7 +363,6 @@ async function main() {
 
             await transport.handleRequest(req, res, body);
 
-            // Extract session ID from response headers
             const respSessionId = res.getHeader('mcp-session-id') as string;
             if (respSessionId) {
               transports[respSessionId] = transport;
@@ -369,7 +373,7 @@ async function main() {
 
           sendJSON(res, 400, {
             jsonrpc: '2.0',
-            error: { code: -32000, message: 'Bad Request: No valid session ID or not an initialization request' },
+            error: { code: -32000, message: 'Bad Request: Invalid session ID' },
             id: null,
           });
           return;
@@ -382,7 +386,12 @@ async function main() {
             await transport.handleRequest(req, res);
             return;
           }
-          sendJSON(res, 400, { error: 'Invalid or missing session ID' });
+          // GET without session — return server info (not an error)
+          sendJSON(res, 200, {
+            name: 'great-cards',
+            version: '1.2.0',
+            description: 'Great.Cards MCP Server — POST to this endpoint to initialize a session',
+          });
           return;
         }
 
@@ -394,7 +403,8 @@ async function main() {
             delete transports[sessionId];
             return;
           }
-          sendJSON(res, 400, { error: 'Invalid or missing session ID' });
+          res.writeHead(204);
+          res.end();
           return;
         }
 
