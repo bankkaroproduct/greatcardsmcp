@@ -314,7 +314,7 @@ async function main() {
         sendJSON(res, 200, {
           status: 'ok',
           server: 'great-cards',
-          version: '1.2.0',
+          version: '1.3.0',
           auth_enabled: clientAuth.isEnabled,
           active_sessions: Object.keys(transports).length,
           cache: cache.stats(),
@@ -407,7 +407,7 @@ async function main() {
           // GET without session — return server info (not an error)
           sendJSON(res, 200, {
             name: 'great-cards',
-            version: '1.2.0',
+            version: '1.3.0',
             description: 'Great.Cards MCP Server — POST to this endpoint to initialize a session',
           });
           return;
@@ -479,12 +479,31 @@ async function main() {
         return;
       }
 
+      // Root / — landing page
+      if (urlPath === '/' || urlPath === '') {
+        sendJSON(res, 200, {
+          name: 'Great.Cards MCP Server',
+          version: '1.3.0',
+          description: 'AI-powered credit card recommendations for the Indian market.',
+          endpoints: {
+            '/mcp': 'Streamable HTTP transport (POST to initialize, GET for SSE stream, DELETE to close) — for Claude custom connectors',
+            '/sse': 'Legacy SSE transport (GET) — for older MCP clients',
+            '/messages': 'Legacy SSE message endpoint (POST)',
+            '/health': 'Health check (GET)',
+          },
+          tools: ['recommend_cards', 'get_card_details', 'list_cards', 'compare_cards', 'check_eligibility'],
+          spending_keys: 21,
+          brands_mapped: '700+',
+        });
+        return;
+      }
+
       res.writeHead(404);
       res.end('Not found');
     });
 
     httpServer.listen(port, () => {
-      console.error(`[great-cards] MCP server v1.2.0 running at http://0.0.0.0:${port}`);
+      console.error(`[great-cards] MCP server v1.3.0 running at http://0.0.0.0:${port}`);
       console.error(`[great-cards] Auth: ${clientAuth.isEnabled ? 'ENABLED' : 'DISABLED (using default key)'}`);
       console.error(`[great-cards] Streamable HTTP: POST/GET/DELETE /mcp (for Claude connectors)`);
       console.error(`[great-cards] Legacy SSE: GET /sse + POST /messages`);
