@@ -3,8 +3,11 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { createServer, type IncomingMessage, type ServerResponse } from 'http';
 import { URL } from 'url';
+import { randomUUID } from 'crypto';
 
 import { clientAuth } from './auth/clientAuth.js';
 import { recommendCardsSchema, recommendCards } from './tools/recommend.js';
@@ -238,16 +241,14 @@ async function main() {
   if (mode === 'sse') {
     const port = Number(process.env.PORT) || 3100;
 
-    // Track active SSE sessions by client key
-    const sessions = new Map<string, { transport: SSEServerTransport; server: McpServer; clientName: string }>();
+    // Track sessions for both transport types
+    const transports: Record<string, StreamableHTTPServerTransport | SSEServerTransport> = {};
 
     function extractApiKey(req: IncomingMessage): string | null {
-      // Check Authorization header: "Bearer gc_live_xxx"
       const authHeader = req.headers.authorization;
       if (authHeader?.startsWith('Bearer ')) {
         return authHeader.slice(7).trim();
       }
-      // Check query param: ?api_key=gc_live_xxx
       try {
         const url = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
         return url.searchParams.get('api_key');
@@ -261,11 +262,28 @@ async function main() {
       res.end(JSON.stringify(body));
     }
 
+    function getRequestBody(req: IncomingMessage): Promise<any> {
+      return new Promise((resolve, reject) => {
+        const chunks: Buffer[] = [];
+        req.on('data', (chunk: Buffer) => chunks.push(chunk));
+        req.on('end', () => {
+          try {
+            const body = Buffer.concat(chunks).toString();
+            resolve(body ? JSON.parse(body) : undefined);
+          } catch (e) {
+            reject(e);
+          }
+        });
+        req.on('error', reject);
+      });
+    }
+
     const httpServer = createServer(async (req, res) => {
-      // CORS headers for remote clients
+      // CORS headers
       res.setHeader('Access-Control-Allow-Origin', process.env.CORS_ORIGIN || '*');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Mcp-Session-Id');
+      res.setHeader('Access-Control-Expose-Headers', 'Mcp-Session-Id');
 
       if (req.method === 'OPTIONS') {
         res.writeHead(204);
@@ -278,71 +296,158 @@ async function main() {
         sendJSON(res, 200, {
           status: 'ok',
           server: 'great-cards',
-          version: '1.1.0',
+          version: '1.2.0',
           auth_enabled: clientAuth.isEnabled,
-          active_sessions: sessions.size,
+          active_sessions: Object.keys(transports).length,
           cache: cache.stats(),
         });
         return;
       }
 
-      // ── Auth check for all other endpoints ──
+      const urlPath = req.url?.split('?')[0];
+
+      // ══════════════════════════════════════════════════════════════
+      // STREAMABLE HTTP TRANSPORT (Protocol 2025-03-26)
+      // Claude custom connectors use this — single /mcp endpoint
+      // ══════════════════════════════════════════════════════════════
+
+      if (urlPath === '/mcp') {
+        // Auth check
+        const apiKey = extractApiKey(req);
+        const client = clientAuth.authenticate(apiKey);
+        if (!client) {
+          sendJSON(res, 401, { error: 'Unauthorized' });
+          return;
+        }
+        if (!clientAuth.checkRateLimit(apiKey || 'default', client.rateLimit)) {
+          sendJSON(res, 429, { error: 'Rate limited' });
+          return;
+        }
+        process.env.PARTNER_API_KEY = client.partnerApiKey;
+
+        if (req.method === 'POST') {
+          const body = await getRequestBody(req);
+          const sessionId = req.headers['mcp-session-id'] as string | undefined;
+
+          // Existing session
+          if (sessionId && transports[sessionId]) {
+            const transport = transports[sessionId];
+            if (transport instanceof StreamableHTTPServerTransport) {
+              await transport.handleRequest(req, res, body);
+              return;
+            }
+          }
+
+          // New session — must be an initialize request
+          if (!sessionId && isInitializeRequest(body)) {
+            const transport = new StreamableHTTPServerTransport({
+              sessionIdGenerator: () => randomUUID(),
+            });
+
+            const sessionServer = createMcpServer();
+            await sessionServer.connect(transport);
+
+            // Store transport by session ID after initialization
+            transport.onclose = () => {
+              const sid = Object.entries(transports).find(([, t]) => t === transport)?.[0];
+              if (sid) {
+                delete transports[sid];
+                console.error(`[great-cards] Streamable session ended: ${client.name}`);
+              }
+            };
+
+            await transport.handleRequest(req, res, body);
+
+            // Extract session ID from response headers
+            const respSessionId = res.getHeader('mcp-session-id') as string;
+            if (respSessionId) {
+              transports[respSessionId] = transport;
+              console.error(`[great-cards] Streamable session started: ${client.name} (${respSessionId.slice(0, 8)}...)`);
+            }
+            return;
+          }
+
+          sendJSON(res, 400, {
+            jsonrpc: '2.0',
+            error: { code: -32000, message: 'Bad Request: No valid session ID or not an initialization request' },
+            id: null,
+          });
+          return;
+        }
+
+        if (req.method === 'GET') {
+          const sessionId = req.headers['mcp-session-id'] as string | undefined;
+          if (sessionId && transports[sessionId] instanceof StreamableHTTPServerTransport) {
+            const transport = transports[sessionId] as StreamableHTTPServerTransport;
+            await transport.handleRequest(req, res);
+            return;
+          }
+          sendJSON(res, 400, { error: 'Invalid or missing session ID' });
+          return;
+        }
+
+        if (req.method === 'DELETE') {
+          const sessionId = req.headers['mcp-session-id'] as string | undefined;
+          if (sessionId && transports[sessionId] instanceof StreamableHTTPServerTransport) {
+            const transport = transports[sessionId] as StreamableHTTPServerTransport;
+            await transport.handleRequest(req, res);
+            delete transports[sessionId];
+            return;
+          }
+          sendJSON(res, 400, { error: 'Invalid or missing session ID' });
+          return;
+        }
+
+        res.writeHead(405);
+        res.end('Method not allowed');
+        return;
+      }
+
+      // ══════════════════════════════════════════════════════════════
+      // LEGACY SSE TRANSPORT (Protocol 2024-11-05)
+      // For older MCP clients that use /sse + /messages
+      // ══════════════════════════════════════════════════════════════
+
+      // Auth check for legacy endpoints
       const apiKey = extractApiKey(req);
       const client = clientAuth.authenticate(apiKey);
-
       if (!client) {
-        sendJSON(res, 401, {
-          error: 'Unauthorized',
-          message: clientAuth.isEnabled
-            ? 'Invalid or missing API key. Pass via Authorization: Bearer <key> or ?api_key=<key>'
-            : 'Auth system error',
-        });
+        sendJSON(res, 401, { error: 'Unauthorized' });
         return;
       }
-
       if (!clientAuth.checkRateLimit(apiKey || 'default', client.rateLimit)) {
-        sendJSON(res, 429, {
-          error: 'Rate limited',
-          message: `Max ${client.rateLimit || 60} requests/minute. Try again shortly.`,
-        });
+        sendJSON(res, 429, { error: 'Rate limited' });
         return;
       }
-
-      // Set the partner API key for this client's requests
-      // This overrides the env var so the API client uses the right key
       process.env.PARTNER_API_KEY = client.partnerApiKey;
-
-      // SSE endpoint — clients connect here
-      const urlPath = req.url?.split('?')[0]; // strip query params
 
       if (urlPath === '/sse' && req.method === 'GET') {
         const sessionServer = createMcpServer();
         const sseTransport = new SSEServerTransport('/messages', res);
-        const sessionId = apiKey || `anon_${Date.now()}`;
 
-        sessions.set(sessionId, { transport: sseTransport, server: sessionServer, clientName: client.name });
-        console.error(`[great-cards] SSE session started: ${client.name} (${sessions.size} active)`);
+        transports[sseTransport.sessionId] = sseTransport;
+        console.error(`[great-cards] SSE session started: ${client.name} (${sseTransport.sessionId.slice(0, 8)}...)`);
 
-        // Clean up on disconnect
         res.on('close', () => {
-          sessions.delete(sessionId);
-          console.error(`[great-cards] SSE session ended: ${client.name} (${sessions.size} active)`);
+          delete transports[sseTransport.sessionId];
+          console.error(`[great-cards] SSE session ended: ${client.name}`);
         });
 
         await sessionServer.connect(sseTransport);
         return;
       }
 
-      // Message endpoint — clients POST tool calls here
       if (urlPath === '/messages' && req.method === 'POST') {
-        // Find the session for this client
-        const sessionId = apiKey || 'default';
-        const session = sessions.get(sessionId);
-        if (!session) {
-          sendJSON(res, 400, { error: 'No active SSE connection. Connect to /sse first.' });
-          return;
-        }
-        await session.transport.handlePostMessage(req, res);
+        try {
+          const url = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
+          const sessionId = url.searchParams.get('sessionId');
+          if (sessionId && transports[sessionId] instanceof SSEServerTransport) {
+            const transport = transports[sessionId] as SSEServerTransport;
+            await transport.handlePostMessage(req, res);
+            return;
+          }
+        } catch { /* */ }
+        sendJSON(res, 400, { error: 'No active SSE session found' });
         return;
       }
 
@@ -351,9 +456,11 @@ async function main() {
     });
 
     httpServer.listen(port, () => {
-      console.error(`[great-cards] MCP server running on SSE at http://0.0.0.0:${port}`);
+      console.error(`[great-cards] MCP server v1.2.0 running at http://0.0.0.0:${port}`);
       console.error(`[great-cards] Auth: ${clientAuth.isEnabled ? 'ENABLED' : 'DISABLED (using default key)'}`);
-      console.error(`[great-cards] Connect: GET /sse | Messages: POST /messages | Health: GET /health`);
+      console.error(`[great-cards] Streamable HTTP: POST/GET/DELETE /mcp (for Claude connectors)`);
+      console.error(`[great-cards] Legacy SSE: GET /sse + POST /messages`);
+      console.error(`[great-cards] Health: GET /health`);
     });
   } else {
     // Default: stdio transport (for Claude Desktop, Claude Code, local MCP clients)
