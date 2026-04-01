@@ -91,25 +91,15 @@ export const apiClient = {
     return apiGet<any>(`/cardgenius/cards/${alias}`, `card:${alias}`);
   },
 
-  calculateCardGenius(spendingData: SpendingData) {
-    // Strip offline_grocery & life_insurance — UAT /cardgenius/calculate rejects them.
-    // Merge into closest API-accepted keys so their value isn't lost.
-    const { offline_grocery, life_insurance, ...coreSpending } = spendingData;
-
-    if (offline_grocery) {
-      coreSpending.other_offline_spends = (coreSpending.other_offline_spends || 0) + offline_grocery;
-    }
-    if (life_insurance) {
-      coreSpending.insurance_health_annual = (coreSpending.insurance_health_annual || 0) + life_insurance;
-    }
-
-    // Ensure all 19 API-accepted fields are present (UAT requires every field)
-    const fullPayload: Omit<SpendingData, 'offline_grocery' | 'life_insurance'> = {
+  async calculateCardGenius(spendingData: SpendingData) {
+    // Build full 21-key payload (production API accepts all keys)
+    const fullPayload: SpendingData = {
       amazon_spends: 0,
       flipkart_spends: 0,
       other_online_spends: 0,
       other_offline_spends: 0,
       grocery_spends_online: 0,
+      offline_grocery: 0,
       online_food_ordering: 0,
       fuel: 0,
       dining_or_going_out: 0,
@@ -122,12 +112,30 @@ export const apiClient = {
       water_bills: 0,
       insurance_health_annual: 0,
       insurance_car_or_bike_annual: 0,
+      life_insurance: 0,
       rent: 0,
       school_fees: 0,
-      ...coreSpending,
+      ...spendingData,
     };
     const key = `calc:${JSON.stringify(fullPayload)}`;
-    return apiPost<any>('/cardgenius/calculate', fullPayload, key);
+
+    try {
+      return await apiPost<any>('/cardgenius/calculate', fullPayload, key);
+    } catch (err: any) {
+      // UAT rejects offline_grocery & life_insurance — fall back to merging them
+      if (err.message?.includes('not allowed')) {
+        const { offline_grocery, life_insurance, ...coreSpending } = fullPayload;
+        if (offline_grocery) {
+          coreSpending.other_offline_spends = (coreSpending.other_offline_spends || 0) + offline_grocery;
+        }
+        if (life_insurance) {
+          coreSpending.insurance_health_annual = (coreSpending.insurance_health_annual || 0) + life_insurance;
+        }
+        const fallbackKey = `calc-fb:${JSON.stringify(coreSpending)}`;
+        return await apiPost<any>('/cardgenius/calculate', coreSpending, fallbackKey);
+      }
+      throw err;
+    }
   },
 
   getCardListing(params: CardListingParams) {

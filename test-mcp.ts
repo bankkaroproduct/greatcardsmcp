@@ -15,12 +15,38 @@ const MCP_ENDPOINT = `${BASE_URL}/mcp`;
 
 let sessionId: string | null = null;
 let requestId = 0;
+let sessionRecoveries = 0;
 
 // ═══════════════════════════════════════════════════════════
 // MCP Client Helpers
 // ═══════════════════════════════════════════════════════════
 
-async function mcpRequest(method: string, params?: any): Promise<any> {
+function parseSSEResponse(text: string, expectedId: number): any {
+  const lines = text.split('\n').filter(l => l.startsWith('data: '));
+  // First pass: match by ID
+  for (const line of lines) {
+    try {
+      const json = JSON.parse(line.slice(6));
+      if (json.id === expectedId) {
+        if (json.error) throw new Error(`MCP Error ${json.error.code}: ${json.error.message}`);
+        return json.result;
+      }
+    } catch { /* skip non-JSON or non-matching */ }
+  }
+  // Second pass: any result/error
+  for (const line of lines) {
+    try {
+      const json = JSON.parse(line.slice(6));
+      if (json.result) return json.result;
+      if (json.error) throw new Error(`MCP Error ${json.error.code || '?'}: ${json.error.message || JSON.stringify(json.error)}`);
+    } catch (e) {
+      if (e instanceof Error && e.message.startsWith('MCP Error')) throw e;
+    }
+  }
+  throw new Error(`No response found in SSE stream (${lines.length} data lines, looking for id=${expectedId}). Raw: ${text.slice(0, 200)}`);
+}
+
+async function rawMcpRequest(method: string, params?: any): Promise<any> {
   const id = ++requestId;
   const body = { jsonrpc: '2.0', id, method, params: params || {} };
   const headers: Record<string, string> = {
@@ -37,31 +63,8 @@ async function mcpRequest(method: string, params?: any): Promise<any> {
 
   const contentType = res.headers.get('content-type') || '';
 
-  // Handle SSE response (Streamable HTTP may return event stream)
   if (contentType.includes('text/event-stream')) {
-    const text = await res.text();
-    // Parse SSE: find "data: {...}" lines
-    const lines = text.split('\n').filter(l => l.startsWith('data: '));
-    for (const line of lines) {
-      try {
-        const json = JSON.parse(line.slice(6));
-        if (json.id === id) {
-          if (json.error) throw new Error(`MCP Error ${json.error.code}: ${json.error.message}`);
-          return json.result;
-        }
-      } catch { /* skip non-JSON or non-matching */ }
-    }
-    // If no ID match, try to find any result/error in the stream
-    for (const line of lines) {
-      try {
-        const json = JSON.parse(line.slice(6));
-        if (json.result) return json.result;
-        if (json.error) throw new Error(`MCP Error ${json.error.code || '?'}: ${json.error.message || JSON.stringify(json.error)}`);
-      } catch (e) {
-        if (e instanceof Error && e.message.startsWith('MCP Error')) throw e;
-      }
-    }
-    throw new Error(`No response found in SSE stream (${lines.length} data lines, looking for id=${id}). Raw: ${text.slice(0, 200)}`);
+    return parseSSEResponse(await res.text(), id);
   }
 
   // Handle JSON response
@@ -76,15 +79,32 @@ async function mcpRequest(method: string, params?: any): Promise<any> {
   }
 }
 
-async function initialize(): Promise<void> {
-  const result = await mcpRequest('initialize', {
+async function mcpRequest(method: string, params?: any): Promise<any> {
+  try {
+    return await rawMcpRequest(method, params);
+  } catch (err: any) {
+    // Auto-recover stale sessions (Render free tier drops them)
+    if (err.message?.includes('Invalid session ID') && sessionRecoveries < 10) {
+      sessionRecoveries++;
+      sessionId = null;
+      await doInitialize(true);
+      return await rawMcpRequest(method, params);
+    }
+    throw err;
+  }
+}
+
+async function doInitialize(silent = false): Promise<void> {
+  const result = await rawMcpRequest('initialize', {
     protocolVersion: '2025-03-26',
     capabilities: {},
     clientInfo: { name: 'test-suite', version: '1.0.0' },
   });
-  console.log(`✅ Connected to: ${result.serverInfo.name} v${result.serverInfo.version}`);
-  console.log(`   Tools: ${result.capabilities?.tools ? 'enabled' : 'disabled'}`);
-  console.log(`   Session: ${sessionId?.slice(0, 8)}...`);
+  if (!silent) {
+    console.log(`✅ Connected to: ${result.serverInfo.name} v${result.serverInfo.version}`);
+    console.log(`   Tools: ${result.capabilities?.tools ? 'enabled' : 'disabled'}`);
+    console.log(`   Session: ${sessionId?.slice(0, 8)}...`);
+  }
 
   // Send initialized notification
   const notifBody = { jsonrpc: '2.0', method: 'notifications/initialized' };
@@ -94,6 +114,10 @@ async function initialize(): Promise<void> {
   };
   if (sessionId) notifHeaders['mcp-session-id'] = sessionId;
   await fetch(MCP_ENDPOINT, { method: 'POST', headers: notifHeaders, body: JSON.stringify(notifBody) });
+}
+
+async function initialize(): Promise<void> {
+  return doInitialize(false);
 }
 
 async function callTool(name: string, args: any): Promise<any> {
@@ -840,6 +864,9 @@ async function main() {
 
   console.log(`\n${'═'.repeat(60)}`);
   console.log(`  RESULTS: ${passed}/${results.length} passed | ${failed} failed | ${totalTime}ms total`);
+  if (sessionRecoveries > 0) {
+    console.log(`  SESSION RECOVERIES: ${sessionRecoveries} (server dropped session mid-run)`);
+  }
   console.log(`${'═'.repeat(60)}`);
 
   if (failed > 0) {
