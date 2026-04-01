@@ -23,7 +23,10 @@ let requestId = 0;
 async function mcpRequest(method: string, params?: any): Promise<any> {
   const id = ++requestId;
   const body = { jsonrpc: '2.0', id, method, params: params || {} };
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json, text/event-stream',
+  };
   if (sessionId) headers['mcp-session-id'] = sessionId;
 
   const res = await fetch(MCP_ENDPOINT, { method: 'POST', headers, body: JSON.stringify(body) });
@@ -31,6 +34,25 @@ async function mcpRequest(method: string, params?: any): Promise<any> {
   // Capture session ID from response
   const sid = res.headers.get('mcp-session-id');
   if (sid) sessionId = sid;
+
+  const contentType = res.headers.get('content-type') || '';
+
+  // Handle SSE response (Streamable HTTP may return event stream)
+  if (contentType.includes('text/event-stream')) {
+    const text = await res.text();
+    // Parse SSE: find last "data: {...}" line
+    const lines = text.split('\n').filter(l => l.startsWith('data: '));
+    for (const line of lines) {
+      try {
+        const json = JSON.parse(line.slice(6));
+        if (json.id === id) {
+          if (json.error) throw new Error(`MCP Error ${json.error.code}: ${json.error.message}`);
+          return json.result;
+        }
+      } catch { /* skip non-matching */ }
+    }
+    throw new Error(`No matching response found in SSE stream for id ${id}`);
+  }
 
   const json = await res.json();
   if (json.error) throw new Error(`MCP Error ${json.error.code}: ${json.error.message}`);
@@ -49,9 +71,12 @@ async function initialize(): Promise<void> {
 
   // Send initialized notification
   const notifBody = { jsonrpc: '2.0', method: 'notifications/initialized' };
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (sessionId) headers['mcp-session-id'] = sessionId;
-  await fetch(MCP_ENDPOINT, { method: 'POST', headers, body: JSON.stringify(notifBody) });
+  const notifHeaders: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json, text/event-stream',
+  };
+  if (sessionId) notifHeaders['mcp-session-id'] = sessionId;
+  await fetch(MCP_ENDPOINT, { method: 'POST', headers: notifHeaders, body: JSON.stringify(notifBody) });
 }
 
 async function callTool(name: string, args: any): Promise<any> {
