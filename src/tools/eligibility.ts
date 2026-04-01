@@ -37,6 +37,25 @@ export async function checkEligibility(input: z.infer<typeof checkEligibilitySch
         card_alias: card.seo_card_alias,
       };
     }),
-    _format_hint: 'These are cards the user CAN apply for based on income and location. To find the BEST card among these, follow up with recommend_cards using their spending profile.',
+    _llm_instructions: {
+      how_to_present: [
+        `Present the count first: "Based on your income of ${input.annual_income} and location, you're eligible for X cards."`,
+        'Group by fee tier: "Free/low-fee options: ...", "Mid-range: ...", "Premium: ..."',
+        'If count is 0: "Your income/location combination doesn\'t match any cards in our database. Consider: (a) checking again with updated income, (b) looking at secured credit cards."',
+        'If count is high (20+): "You qualify for many cards! To find the BEST one, I need your spending details."',
+      ],
+      next_actions: [
+        'ALWAYS follow up with spending collection: "Now that we know which cards you qualify for, let\'s find the one that saves you the most. What do you spend the most on — shopping, dining, travel, fuel, or bills?"',
+        'Then use recommend_cards with their spending to rank the eligible cards.',
+        'If user asks about a specific eligible card: use get_card_details with the card_alias.',
+        'If user wants to compare: use compare_cards with 2-3 card_alias values.',
+      ],
+      anti_hallucination: [
+        'NEVER claim a card is "easy to get" or "guaranteed approval" — eligibility just means the user meets minimum criteria.',
+        'NEVER invent income requirements not in the data.',
+        'Use card_alias from this response for follow-up calls.',
+      ],
+      income_context: 'Rough income tiers: ₹3-5L = entry cards, ₹5-10L = mid-range, ₹10-15L = premium, ₹15L+ = super-premium, ₹25L+ = ultra-premium/invite-only.',
+    },
   };
 }

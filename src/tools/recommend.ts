@@ -2,6 +2,35 @@ import { z } from 'zod';
 import { apiClient, type SpendingData } from '../api/client.js';
 import { enrichCardGeniusResults } from '../enrichment/cardGenius.js';
 
+// Embedded in every response so the LLM agent always has next-step guidance
+const LLM_CONTEXT = {
+  _llm_instructions: {
+    how_to_present: [
+      'Lead with the #1 card and its net_annual_savings — this is the headline number.',
+      'Explain WHY it ranked #1 using the spending_breakdown (e.g. "Your ₹8K/month Amazon spending earns 5x rewards on this card").',
+      'Show the cost: "Annual fee: ₹X (incl. GST). Your savings of ₹Y cover this in Z months."',
+      'For #2 and #3: brief comparison highlighting the trade-off (e.g. "lower fee but no lounge access").',
+      'NEVER list more than 3-4 cards — it overwhelms the user.',
+      'NEVER show raw JSON to the user — always narrate the results.',
+    ],
+    next_actions: [
+      'Offer to compare top 2: "Want me to compare these two side by side?" → use compare_cards with the card_alias values.',
+      'Offer deep-dive: "Want to know more about [top card]\'s rewards structure?" → use get_card_details with the card_alias.',
+      'Offer eligibility: "Want to check if you qualify for [top card]?" → use check_eligibility (need pincode, income, employment).',
+      'If user didn\'t share all spending: "I notice you didn\'t mention [category]. Adding that could change the ranking — do you spend on [category]?"',
+    ],
+    anti_hallucination: [
+      'NEVER invent reward rates, points multipliers, or benefits not in the response data.',
+      'NEVER claim a card is "free" if joining_fee or annual_fee shows a non-zero amount.',
+      'NEVER say "this card has no annual fee" unless annual_fee literally says "Free".',
+      'If spending_breakdown is empty or missing for a card, say "detailed breakdown unavailable" — don\'t guess.',
+      'Use card_alias from this response for any follow-up tool calls — NEVER construct aliases manually.',
+    ],
+    fee_context: 'All fees include 18% GST. "Joining fee" is the first-year cost. Many cards waive the annual fee if you spend above a threshold (check get_card_details for waiver conditions).',
+    savings_formula: 'net_annual_savings = annual_rewards_value + milestone_benefits + lounge_value - joining_fee - annual_fee. A positive number means the card pays for itself.',
+  },
+};
+
 export const recommendCardsSchema = z.object({
   amazon_spends: z.number().optional().describe('Monthly Amazon spending in ₹ (Amazon ONLY — not other e-commerce)'),
   flipkart_spends: z.number().optional().describe('Monthly Flipkart spending in ₹ (Flipkart ONLY — not other e-commerce)'),
@@ -59,6 +88,7 @@ export async function recommendCards(input: z.infer<typeof recommendCardsSchema>
         card_alias: card.seo_card_alias,
       })),
       _format_hint: 'Present as a ranked list. net_annual_savings is the primary metric — it accounts for rewards earned MINUS fees paid.',
+      ...LLM_CONTEXT,
     };
   }
 
@@ -78,6 +108,7 @@ export async function recommendCards(input: z.infer<typeof recommendCardsSchema>
         card_alias: card.seo_card_alias,
       })),
       _format_hint: 'Numeric values for easy comparison. Present as a table. net_annual_savings = annual_rewards + milestone_benefits + lounge_value - joining_fee - annual_fee.',
+      ...LLM_CONTEXT,
     };
   }
 
@@ -101,5 +132,6 @@ export async function recommendCards(input: z.infer<typeof recommendCardsSchema>
       image: card.card_bg_image,
     })),
     _format_hint: 'net_annual_savings is the KEY metric — it\'s what the user actually saves after fees. Always lead with this. spending_breakdown shows exactly where savings come from per category.',
+    ...LLM_CONTEXT,
   };
 }

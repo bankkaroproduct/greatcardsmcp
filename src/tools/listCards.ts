@@ -2,6 +2,29 @@ import { z } from 'zod';
 import { apiClient } from '../api/client.js';
 import { feeCalc } from '../enrichment/feeUtils.js';
 
+const LLM_CONTEXT = {
+  _llm_instructions: {
+    how_to_present: [
+      'Present as a clean list with card name, bank, and fee.',
+      'If the user asked about a category, highlight what makes these cards good for that category.',
+      'Group by fee tier if showing many cards: "Free cards: ...", "Mid-range (₹500-2K): ...", "Premium (₹5K+): ..."',
+      'ALWAYS mention the total_available count: "There are X [category] cards available. Here are the top Y."',
+    ],
+    next_actions: [
+      'ALWAYS ask about spending to personalize: "To find the BEST card among these for YOU, I\'d need your spending details. What do you spend the most on?"',
+      'Offer details: "Want to know more about any of these? I can show you the full benefits and rewards structure."',
+      'If user picks a card: use get_card_details with the card_alias from this response.',
+      'If user wants to compare: use compare_cards with 2-3 card_alias values from this response.',
+    ],
+    anti_hallucination: [
+      'NEVER make up benefits or rewards not shown in the response.',
+      'NEVER claim a card is "best for X" unless you have spending data to prove it — use recommend_cards for that.',
+      'Use card_alias from this response for any follow-up tool calls — NEVER construct aliases manually.',
+      'If a card shows joining_fee as "Free", that means lifetime free (LTF) — no joining or annual fee.',
+    ],
+  },
+};
+
 export const listCardsSchema = z.object({
   category: z.enum([
     'best-fuel-credit-card',
@@ -48,6 +71,7 @@ export async function listCards(input: z.infer<typeof listCardsSchema>) {
         annual_fee: feeCalc(card.annual_fee_text).inline,
         card_alias: card.seo_card_alias,
       })),
+      ...LLM_CONTEXT,
     };
   }
 
@@ -71,5 +95,6 @@ export async function listCards(input: z.infer<typeof listCardsSchema>) {
         image: card.card_bg_image || card.image,
       };
     }),
+    ...LLM_CONTEXT,
   };
 }

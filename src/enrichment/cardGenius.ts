@@ -85,9 +85,11 @@ export async function enrichCardGeniusResults({
       try {
         let cardDetails: any = null;
 
-        if (fetchDetails && saving?.card_alias) {
+        // The calculate API uses seo_card_alias (not card_alias)
+        const cardAlias = saving?.card_alias || saving?.seo_card_alias;
+        if (fetchDetails && cardAlias) {
           try {
-            const detailResponse = await apiClient.getCardDetails(saving.card_alias);
+            const detailResponse = await apiClient.getCardDetails(cardAlias);
             cardDetails = extractDetail(detailResponse?.data);
           } catch {
             // Card details fetch failed — continue with saving data only
@@ -110,8 +112,12 @@ export async function enrichCardGeniusResults({
         const internationalLoungeValue = actualInternationalVisits * RUPEE_INTERNATIONAL_LOUNGE;
         const loungeValue = domesticLoungeValue + internationalLoungeValue;
 
-        const joiningFees = feeCalc(saving?.joining_fee_text ?? cardDetails?.joining_fee_text).withGST;
-        const annualFee = feeCalc(saving?.annual_fee_text ?? cardDetails?.annual_fee_text).withGST;
+        // Prefer cardDetails for fees — the calculate API often returns "0" even for paid cards.
+        // cardDetails (from /card-detail) is the authoritative fee source.
+        const joiningFeeRaw = cardDetails?.joining_fee_text || saving?.joining_fee_text;
+        const annualFeeRaw = cardDetails?.annual_fee_text || saving?.annual_fee_text;
+        const joiningFees = feeCalc(joiningFeeRaw).withGST;
+        const annualFee = feeCalc(annualFeeRaw).withGST;
         const totalSavingsYearly = parseNumber(saving?.total_savings_yearly ?? saving?.total_savings ?? cardDetails?.total_savings_yearly);
         const milestoneOnly = parseNumber(
           saving?.total_extra_benefits ?? saving?.milestone_benefits_only ?? cardDetails?.total_extra_benefits,
@@ -127,8 +133,8 @@ export async function enrichCardGeniusResults({
           card_bg_image: saving?.card_bg_image || cardDetails?.card_bg_image || cardDetails?.card_image || cardDetails?.image || '',
           seo_card_alias: cardDetails?.seo_card_alias || saving?.seo_card_alias || saving?.card_alias,
           joining_fees: joiningFees,
-          joining_fee_text: saving?.joining_fee_text || cardDetails?.joining_fee_text || '0',
-          annual_fee_text: saving?.annual_fee_text || cardDetails?.annual_fee_text || '0',
+          joining_fee_text: joiningFeeRaw || '0',
+          annual_fee_text: annualFeeRaw || '0',
           total_savings: totalSavings,
           total_savings_yearly: totalSavingsYearly,
           total_extra_benefits: milestoneOnly,
