@@ -672,11 +672,13 @@ FOLLOW-UP: Always ask about spending to personalize
 TOOL: get_card_details
 WHEN: User names a specific card, or wants deep-dive after recommendations
 HOW: Construct alias as lowercase-hyphenated: "HDFC Regalia Gold" → "hdfc-regalia-gold-credit-card"
-COMMON ALIASES: hdfc-infinia-credit-card, hdfc-diners-club-black, axis-magnus-credit-card,
-  sbi-cashback-credit-card, icici-amazon-pay-credit-card, axis-flipkart-credit-card,
-  au-lit-credit-card, onecard-credit-card, scapia-credit-card, idfc-first-millennia-credit-card,
-  hdfc-swiggy-credit-card, axis-ace-credit-card
-TIP: If alias fails, use list_cards to find the correct alias first.
+IMPORTANT: Card aliases are inconsistent — some have "-credit-card" suffix, some don't, some include "bank" in the name, some don't.
+COMMON ALIASES: hdfc-regalia-gold, hdfc-millenia-credit-card, hdfc-swiggy-credit-card, hdfc-diners-privilege-credit-card,
+  axis-bank-magnus-credit-card, axis-flipkart-credit-card, axis-atlas-credit-card, axis-neo-credit-card,
+  sbi-cashback-credit-card, sbi-elite-card, sbi-aurum-credit-card,
+  icici-amazon-pay-credit-card, icici-sapphiro-credit-card, icici-rubyx-credit-card,
+  scapia-credit-card, idfc-first-millennia-credit-card, au-altura-plus-credit-card, zagg-rupay-credit-card
+TIP: If an alias returns "not found", ALWAYS use list_cards to find the correct alias. Never guess.
 
 TOOL: compare_cards
 WHEN: User says "X vs Y", "which is better", or is deciding between 2-3 cards
