@@ -23,6 +23,8 @@ export interface SpendingData {
   insurance_car_or_bike_annual?: number;
   rent?: number;
   school_fees?: number;
+  offline_grocery?: number;
+  life_insurance?: number;
 }
 
 export interface CardListingParams {
@@ -111,6 +113,8 @@ export const apiClient = {
       insurance_car_or_bike_annual: 0,
       rent: 0,
       school_fees: 0,
+      offline_grocery: 0,
+      life_insurance: 0,
       ...spendingData,
     };
     const key = `calc:${JSON.stringify(fullPayload)}`;

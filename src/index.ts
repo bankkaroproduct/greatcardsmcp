@@ -76,6 +76,8 @@ SPENDING KEY MAPPING (CRITICAL — map user mentions to correct keys):
 • insurance_car_or_bike_annual → ANNUAL vehicle insurance — convert monthly×12
 • rent → Monthly rent (via CRED RentPay, NoBroker, etc.)
 • school_fees → Monthly education fees (school, coaching, college)
+• offline_grocery → Monthly physical grocery store spend: DMart, Reliance Smart/Fresh, Nature's Basket, 24Seven, kirana stores, liquor stores
+• life_insurance → ANNUAL life insurance premium: LIC, HDFC Life, SBI Life, ICICI Prudential, Max Life, Tata AIA, term plans, ULIPs
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 VAGUE QUERY HANDLING:
@@ -86,8 +88,8 @@ VAGUE QUERY HANDLING:
 • "travel card" → ask about flights, hotels, lounges; these drive the biggest travel card differentiation
 
 IMPORTANT UNITS:
-• Most fields are MONTHLY amounts in ₹
-• flights_annual, hotels_annual, insurance_* are ANNUAL — multiply monthly by 12
+• Most fields are MONTHLY amounts in ₹ (including offline_grocery)
+• flights_annual, hotels_annual, insurance_health_annual, insurance_car_or_bike_annual, life_insurance are ANNUAL — multiply monthly by 12
 • lounge fields are PER QUARTER — divide annual visits by 4
 • All fee outputs include 18% GST`,
     recommendCardsSchema.shape,

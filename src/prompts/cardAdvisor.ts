@@ -5,7 +5,7 @@
  * calling the MCP tools HOW to run a credit card advisory conversation.
  *
  * Ported and expanded from CardGeniusAI v1/v2 conversation orchestration,
- * covering 75+ user scenarios, 76+ brand mappings, and exhaustive
+ * covering 75+ user scenarios, 700+ brand mappings, 21 spending keys, and exhaustive
  * conversation flow logic.
  */
 
@@ -98,85 +98,309 @@ NATURAL QUESTIONS FOR EACH CATEGORY:
 • water_bills: "Monthly water bill?"
 • insurance_health_annual: "Do you pay health insurance? Annual premium?"
 • insurance_car_or_bike_annual: "Vehicle insurance annual premium?"
+• life_insurance: "Do you pay life insurance premiums? What's the annual amount? (LIC, term plans, etc.)"
 • rent: "Do you pay rent via credit card? Monthly amount?"
 • school_fees: "Any education/school fees you pay monthly?"
+• offline_grocery: "Do you buy groceries from physical stores like DMart, Reliance, local shops? How much per month?"
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SECTION 3: BRAND → SPENDING KEY MAPPING (76+ brands)
+SECTION 3: BRAND → SPENDING KEY MAPPING (700+ brands)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-When a user mentions ANY brand, map it to the correct spending key:
+When a user mentions ANY brand, map it to the correct spending key.
+Some brands map to MULTIPLE keys depending on context (in-store vs online). When in doubt, ask.
 
-AMAZON (amazon_spends): Amazon, Amazon.in, Amazon Fresh → amazon_spends ONLY (Amazon Fresh is amazon, NOT grocery)
-FLIPKART (flipkart_spends): Flipkart, Flipkart Grocery → flipkart_spends ONLY
+── AMAZON (amazon_spends) ──────────────────────────────────────
+Amazon, Amazon.in → amazon_spends ONLY
+NOTE: Amazon Fresh → amazon_spends (it's on Amazon platform)
 
-OTHER ONLINE SHOPPING (other_online_spends):
-Myntra, Meesho, Nykaa, Nykaa Fashion, Ajio, Tata CLiQ, Snapdeal, ShopClues,
-Pepperfry, Urban Ladder, FirstCry, Lenskart, FabIndia, BIBA, Aurelia,
-W for Woman, Westside, Peter England, Van Heusen, Louis Philippe, Allen Solly,
-Decathlon, Fynd, Croma online, Reliance Digital online,
-BookMyShow (tickets), Ola, Uber rides,
-PharmEasy, NetMeds, 1mg, Tata 1mg,
-Urban Company, CRED bill pay,
-Netflix, Amazon Prime Video, Disney+ Hotstar, Zee5, Sony LIV, JioCinema,
-Spotify, YouTube Premium, Apple Music (OTT/subscriptions),
-ET Money, Paisabazaar, Policybazaar, ClearTax,
-FreshToHome online, Licious online
+── FLIPKART (flipkart_spends) ──────────────────────────────────
+Flipkart → flipkart_spends ONLY
+NOTE: Flipkart Grocery, Flipkart Minutes → flipkart_spends
 
-OFFLINE/IN-STORE (other_offline_spends):
-Malls, D-Mart in-store, Reliance Fresh, More Megastore,
-Croma in-store, Reliance Digital in-store,
-Local markets, street shopping, salons, spas, gyms,
-Medical stores/pharmacies in-store, any physical card swipe/tap,
-Decathlon in-store, Westside in-store
-
-ONLINE GROCERY (grocery_spends_online):
+── ONLINE GROCERY (grocery_spends_online) ──────────────────────
 BigBasket, Blinkit (formerly Grofers), Zepto, Swiggy Instamart,
-JioMart, Amazon Fresh (NOTE: also maps to amazon_spends — ask user which they mean),
-Flipkart Grocery, DMart Ready, Nature's Basket online
+BBNow, Amazon Fresh*, DMart Ready
+*Amazon Fresh: If user buys groceries via Amazon → split between amazon_spends and grocery_spends_online. Ask which is primary.
 
-FOOD DELIVERY (online_food_ordering):
-Swiggy (food delivery ONLY, NOT Instamart), Zomato (food ONLY, NOT Blinkit),
-EatSure, Box8, Dominos online order, Pizza Hut online order,
-KFC online order, McDonald's online order, Burger King online order
+── FOOD DELIVERY (online_food_ordering) ────────────────────────
+Swiggy (food ONLY — NOT Instamart), Zomato (food ONLY — NOT Blinkit),
+EatSure, Swiggy Genie, Zepto Cafe, Licious (online orders),
+Country Delight (dairy/food delivery)
+NOTE: Sleepy Owl online = online_food_ordering
 
-DINING OUT (dining_or_going_out):
-All restaurants, Starbucks, Cafe Coffee Day (CCD), Barista, Third Wave Coffee,
-Haldiram's, Bikanervala, Barbeque Nation, Mainland China,
-KFC/McDonald's/Dominos DINE-IN, bars, pubs, breweries, food courts,
-Fine dining, cafes — any IN-PERSON eating/drinking
+── DINE-IN + DELIVERY BRANDS (dining_or_going_out when in-person, online_food_ordering when delivered) ──
+These QSR/cafe chains exist BOTH in-person and on delivery apps.
+Ask user: "Do you mostly eat at [brand] or order delivery?"
+• Cafes: Starbucks, Tim Hortons, Blue Tokai, Third Wave Coffee, CCD (Cafe Coffee Day), Chaayos
+• QSR: KFC, Pizza Hut, Subway, Burger King, McDonald's, Domino's, Taco Bell, California Burrito
+• Bakery/Desserts: Theobroma, Karachi Bakery, Belgian Waffle Co., La Pino'z Pizza, Krispy Kreme, Dunkin'
+• Restaurants: Biryani By Kilo, Biryani Blues, Social (cafe chain), Mamagoto
+• Fast food: EatSure, Box8
 
-FUEL (fuel):
-HP, Indian Oil (IOCL), BPCL, Shell India, Nayara Energy, Reliance Petroleum,
-Any petrol pump / fuel station
+── DINING OUT ONLY (dining_or_going_out — in-person only) ──────
+• Restaurants: Barista, Haldiram's, Bikanervala, Barbeque Nation, BBQ Nation Express,
+  Saravana Bhavan, Sagar Ratna, Hard Rock Cafe, TGI Fridays, Chili's, Nando's
+• Fine dining: Bastian, The Bombay Canteen, Indian Accent, Farzi Cafe, Punjab Grill,
+  Burma Burma, Dhaba Estd 1986, Cafe Delhi Heights, Big Chill, Mamagoto
+• Ice cream: Baskin Robbins, Naturals Ice Cream, Havmor, Vadilal, Cream Stone
+• Sweets: Hira Sweets, Om Sweets, Anand Sweets, Gulab, Karim's
+• Other: Keventers, Drunken Monkey, Waffle House, Mad Over Donuts, Ovenfresh
+• Dining booking: EasyDiner → dining_or_going_out (+ other_online_spends if booking fees)
 
-FLIGHTS (flights_annual — ANNUAL amount):
-IndiGo, Air India, Vistara, SpiceJet, AirAsia India, GoFirst,
-MakeMyTrip flights, Cleartrip flights, EaseMyTrip, Goibibo flights,
-Yatra flights, Google Flights, Skyscanner
-NOTE: If user says "I spend X on MakeMyTrip" — ask: flights, hotels, or both?
+── FUEL (fuel) ─────────────────────────────────────────────────
+HP, Indian Oil (IOCL), Bharat Petroleum (BPCL), Shell India, Nayara Energy,
+Reliance Petroleum — any petrol pump / fuel station
 
-HOTELS (hotels_annual — ANNUAL amount):
-MakeMyTrip hotels, Goibibo hotels, Booking.com, Trivago,
-OYO, Airbnb, Marriott India, Hyatt India, Hilton India, ITC Hotels,
-Taj Hotels, Lemon Tree Hotels, Ginger Hotels, Treebo Hotels
+── FLIGHTS (flights_annual — ANNUAL amount) ────────────────────
+• Airlines: IndiGo, Air India, Vistara, SpiceJet, Akasa Air, AirAsia India,
+  Emirates, Qatar Airways, Singapore Airlines, Etihad, British Airways, Lufthansa
+• Booking platforms (flights portion): MakeMyTrip, Goibibo, Cleartrip, Yatra,
+  EaseMyTrip, Booking.com, Agoda, Expedia, TripAdvisor, Google Flights, Skyscanner
+NOTE: MakeMyTrip/Goibibo/Cleartrip/Yatra/EaseMyTrip/Booking.com/Agoda/Expedia/TripAdvisor
+  → These are BOTH flights AND hotels. If user says "I spend X on MakeMyTrip" → ASK: flights, hotels, or both? Split accordingly.
 
-LOUNGES:
-domestic_lounge_usage_quarterly: Priority Pass, DreamFolks domestic visits — PER QUARTER
+── HOTELS (hotels_annual — ANNUAL amount) ──────────────────────
+• Budget: OYO, Treebo, FabHotels, Zostel, Hosteller, Backpacker Panda
+• Mid-range: Ginger Hotels, Lemon Tree Hotels, Ibis, Radisson
+• Premium: Taj Hotels, Vivanta, Oberoi Hotels, Trident Hotels, ITC Hotels,
+  Marriott, Courtyard by Marriott, JW Marriott, Westin, Sheraton,
+  Hyatt, Hilton, IHG (Holiday Inn), Accor (Novotel), The Leela
+• Ultra-luxury: St. Regis, Four Seasons, Anantara, Banyan Tree
+• Vacation: Club Mahindra, Sterling Holidays, Airbnb
+• Booking platforms (hotels portion): MakeMyTrip Hotels, Goibibo Hotels, Cleartrip Hotels, Booking.com
+
+── LOUNGES ──────────────────────────────────────────────────────
+domestic_lounge_usage_quarterly: Priority Pass, DreamFolks domestic — PER QUARTER
 international_lounge_usage_quarterly: Priority Pass international, airline lounges abroad — PER QUARTER
 
-MOBILE BILLS (mobile_phone_bills): Jio, Airtel, Vi (Vodafone-Idea), BSNL
-ELECTRICITY (electricity_bills): Tata Power, Adani Electricity, BSES Rajdhani/Yamuna, CESC, state discoms
-WATER (water_bills): Municipal/DJB water bills
+── MOBILE / BROADBAND BILLS (mobile_phone_bills) ──────────────
+• Mobile: Reliance Jio, Airtel, Vi (Vodafone Idea), BSNL, MTNL
+• Broadband: JioFiber, Airtel Xstream Fiber, ACT Fibernet, Hathway,
+  Tata Play Fiber, You Broadband, Spectra, Excitel, RailWire, GTPL
 
-INSURANCE — ANNUAL:
-insurance_health_annual: Star Health, HDFC Ergo, ICICI Lombard, Max Bupa, Niva Bupa, Care Health
-insurance_car_or_bike_annual: Car/bike comprehensive, third-party, own-damage policies
+── ELECTRICITY (electricity_bills) ─────────────────────────────
+Tata Power, Adani Electricity, BSES Rajdhani/Yamuna, CESC, state discoms
 
-RENT (rent — monthly): Via CRED RentPay, NoBroker, MagicBricks, Paytm, direct card payment
-EDUCATION (school_fees — monthly): School tuition, Byju's, Unacademy, coaching, college fees
+── WATER (water_bills) ─────────────────────────────────────────
+Municipal/DJB water bills
 
-IF A BRAND IS NOT LISTED: Map to the most appropriate category based on its primary business. Online → other_online_spends. Physical → other_offline_spends. If unsure, ask the user.
+── HEALTH INSURANCE (insurance_health_annual — ANNUAL) ─────────
+• Dedicated health: Star Health, Care Health (Care Supreme), Niva Bupa (ReAssure),
+  ManipalCigna, Aditya Birla Health, SBI Health
+• Health plans from general insurers: HDFC ERGO Health, Tata AIG Medicare,
+  Digit Health Plus, Acko Platinum Health, New India Assurance Health,
+  United India Health, Oriental Health, National Health
+• Amazon Insurance Store → insurance_health_annual
+
+── VEHICLE INSURANCE (insurance_car_or_bike_annual — ANNUAL) ───
+• Dedicated motor: Go Digit Car, Acko Car/Drive, Digit Two-Wheeler,
+  Bajaj Allianz Motor, ICICI Lombard Motor, HDFC ERGO Motor,
+  Tata AIG Motor, SBI General Motor, New India Motor, Oriental Motor,
+  United India Motor, National Motor
+• Travel insurance with vehicle cover: Thomas Cook Insurance, PhonePe Insurance, Paytm Insurance
+
+── GENERAL INSURANCE COMPANIES (map to BOTH insurance_health_annual + insurance_car_or_bike_annual — ASK user which type) ──
+SBI General, ICICI Lombard, Bajaj Allianz General, HDFC ERGO, Tata AIG,
+Reliance General, New India Assurance, United India Insurance, Oriental Insurance,
+National Insurance, IFFCO Tokio, Future Generali, Liberty General, Royal Sundaram,
+Cholamandalam MS, Acko, Digit/Go Digit, Navi General, Kotak General
+→ When user says "I pay X to ICICI Lombard" → ASK: "Is that health insurance or vehicle insurance?"
+
+── LIFE INSURANCE (life_insurance — ANNUAL) ────────────────────
+LIC, HDFC Life, SBI Life, ICICI Prudential Life, Max Life, Tata AIA Life,
+Bajaj Allianz Life, PNB MetLife, Aditya Birla Sun Life, Kotak Life,
+Canara HSBC Life, Aegon Life, Aviva Life, Ageas Federal Life,
+IndiaFirst Life, Edelweiss Tokio Life, Future Generali Life
+Plans: LIC Jeevan, SBI Life eShield, HDFC Life Click2Protect,
+Max Life Smart Secure, Kotak e-Term, Tata AIA Sampoorna Raksha, PNB MetLife Mera Term Plan
+
+── INSURANCE AGGREGATORS (other_online_spends) ────────────────
+Policybazaar, Coverfox, RenewBuy, Turtlemint, Beshak,
+Ditto Insurance (Zerodha), Bajaj Finserv Health, BimaPe
+
+── RENT (rent — monthly) ──────────────────────────────────────
+CRED RentPay, NoBroker, MagicBricks, Paytm, direct card payment
+
+── EDUCATION — INSTITUTIONS (school_fees — monthly) ────────────
+• Schools: DPS, Ryan International, KidZee, EuroKids
+• Coaching: Aakash, Allen, FIITJEE, TIME, Career Launcher, Kumon
+• Universities: Amity, Manipal, Symbiosis
+• Professional: NIIT, Aptech, British Council, Duolingo
+
+── EDUCATION — ONLINE PLATFORMS (other_online_spends, NOT school_fees) ──
+BYJU'S, Unacademy, Vedantu, upGrad, Simplilearn, Coursera, Udemy,
+Internshala, Great Learning, Scaler, Coding Ninjas, Physics Wallah (PW),
+Testbook, Adda247, Cuemath, Teachmint, Classplus
+→ These are online subscriptions/purchases → other_online_spends
+→ school_fees is for institutional fees paid regularly (tuition, coaching centers)
+
+── OFFLINE GROCERY (offline_grocery — monthly) ─────────────────
+Physical grocery/supermarket/household stores:
+DMart, Reliance Smart, Reliance Fresh, Nature's Basket, 24Seven, Westside (grocery section),
+Kohinoor, Spencer's (in-store), local kirana/supermarkets
+Liquor stores: The Liquor Mart, Kings Liquor Junction, Discovery Liquor Warehouse,
+Wine Factory, Madhuloka Liquor Boutique, House of Spirits, Whisky Junction,
+The Weekend Wine & More, Vina Alkohal, The Party Store, G-Town Wines,
+Mansionz by Living Liquidz, Daily Dose, Lakeforest Wines, any wine/liquor shop
+→ This is SEPARATE from grocery_spends_online (BigBasket, Blinkit, Zepto etc.)
+→ If user says "I spend on groceries" → ASK: "Do you buy groceries online (Blinkit, BigBasket, Zepto) or at physical stores (DMart, Reliance, local shops)?" Split accordingly.
+
+── OFFLINE/IN-STORE RETAIL (other_offline_spends) ─────────────
+• Fashion stores (in-store ONLY): Wrangler, Lee, Pepe Jeans,
+  Sabyasachi, Tarun Tahiliani, Anita Dongre, Ritu Kumar
+• Beauty salons: Lakmé Salon, VLCC, Jawed Habib
+• Electronics: Vijay Sales (in-store)
+• Fitness: Anytime Fitness
+• Other: India Post, Max (in-store), any physical card swipe/tap/POS transaction
+NOTE: Does NOT include grocery stores (use offline_grocery) or restaurants (use dining_or_going_out)
+
+── BRANDS THAT ARE BOTH OFFLINE + ONLINE (other_offline_spends when in-store, other_online_spends when online) ──
+Ask: "Do you buy from [brand] mostly in-store or online?" Split spend accordingly.
+
+• Fashion & Apparel:
+  Zudio, Max Fashion, Pantaloons, Shoppers Stop, Lifestyle, Central, Forever 21,
+  Zara, H&M, Uniqlo, Marks & Spencer, Levi's, U.S. Polo Assn., Tommy Hilfiger,
+  Calvin Klein, Arrow, Van Heusen, Louis Philippe, Peter England, Allen Solly,
+  Park Avenue, Raymond, Manyavar, Mohey, Fabindia, Biba, W, Aurelia,
+  Global Desi, AND, Libas, Anouk, Rangriti, Soch, Jaypore, House of Masaba
+
+• Sportswear & Shoes:
+  Nike, Adidas, Puma, Reebok, Skechers, New Balance, Asics, Under Armour,
+  Converse, Crocs, Bata, Hush Puppies, Woodland, Red Tape, Campus, Sparx,
+  Liberty Shoes, Metro Shoes, Mochi, Aldo, Steve Madden, Clarks, Decathlon
+
+• Watches & Eyewear:
+  Titan, Fastrack, Sonata, Casio, Fossil, Michael Kors, Guess,
+  Lenskart, Titan Eye+, Ray-Ban, Oakley, Police
+
+• Bags & Accessories:
+  Da Milano, Hidesign, Baggit, Lavie, Caprese, Wildcraft,
+  American Tourister, Samsonite, Skybags, VIP, Safari
+
+• Beauty & Personal Care:
+  L'Oréal Professional, Forest Essentials, Kama Ayurveda, The Body Shop,
+  Bath & Body Works, Victoria's Secret Beauty, Nykaa, Tira Beauty, Sephora,
+  Apollo Pharmacy, Health & Glow, The Face Shop, Lakmé
+
+• Electronics & Appliances:
+  Samsung, Apple, Sony, LG, Panasonic, Prestige, Dyson, Croma,
+  Samsung Smart TV, Sony Bravia, LG OLED
+
+• Jewellery:
+  Tanishq, Kalyan Jewellers, Malabar Gold, PC Jeweller
+
+• Home & Furniture:
+  IKEA, Sleepwell, Wakefit, Hindware, Jaquar, Cera
+
+• Healthcare:
+  Apollo Hospitals, Fortis Healthcare, Max Healthcare, Manipal Hospitals,
+  Dr. Lal PathLabs
+
+• Fitness:
+  Cult.fit
+
+• Luxury:
+  Ralph Lauren, Lacoste, Ferrari, Swarovski
+
+• Innerwear:
+  Jockey, Triumph
+
+• Other: Urban Company, Stanley, Muji
+
+── ONLINE-ONLY BRANDS (other_online_spends) ────────────────────
+
+• D2C Fashion: Myntra, Ajio, Tata CLiQ, Nykaa Fashion, Bewakoof,
+  The Souled Store, Snitch, Urbanic, Meesho, Snapdeal, Shopsy, Tata Neu
+
+• D2C Beauty: Mamaearth, The Derma Co, Aqualogica, Dr. Sheth's, Minimalist,
+  Plum, Sugar Cosmetics, Colorbar, Maybelline, Neutrogena, Cetaphil, CeraVe,
+  MyGlamm, Purplle, WOW Skin Science, MCaffeine, Dot & Key, Foxtale,
+  Too Faced, Rhode, Cosrx, Quench, Maccaron
+
+• Grooming: Beardo, The Man Company, Bombay Shaving Company, Gillette, Veet,
+  Braun, Philips Grooming, Park Avenue Grooming, Bella Vita Organic
+
+• Smartphones: Xiaomi, OnePlus, Vivo, Oppo, Realme, Motorola, iQOO,
+  Infinix, Tecno, Lava, Google Pixel, Asus, Apple Store Online, Mi Store, OnePlus Store
+
+• Laptops: Lenovo, HP, Dell, Acer, MSI, Asus
+
+• Audio: Bose, JBL, Boat, Noise, Fire-Boltt, pTron, Skullcandy,
+  Sennheiser, Marshall, Zebronics, Portronics, Ambrane
+
+• Cameras: Canon, Nikon, GoPro, DJI
+
+• Home Appliances: Whirlpool, IFB, Godrej Appliances, Voltas, Blue Star,
+  Daikin, Hitachi, Carrier, Havells, Bajaj Electricals, Crompton, Orient Electric,
+  Usha, Pigeon, Hawkins, Wonderchef, Kent, Aquaguard (Eureka Forbes),
+  Livpure, Eureka Forbes, Morphy Richards, Bosch Home, Syska, Anchor
+
+• Streaming TV: Amazon Fire TV, Chromecast, Mi TV, Airtel Xstream Box, JioFiber Set-Top
+
+• Online Pharmacy: PharmEasy, Netmeds, Tata 1mg, Apollo 24|7, Practo
+
+• E-commerce (other): Pepperfry, Urban Ladder, FirstCry, Hopscotch,
+  Limeroad, ShopClues, Reliance Digital, JioMart, Dunzo, Cred Store,
+  Zivame, Clovia, CaratLane, Bluestone, Joyalukkas Online, Boat Lifestyle Store
+
+• Cab/Ride services: Uber, Ola, Rapido, Namma Yatri, BluSmart, inDrive, DriveU
+
+• Car rental: Zoomcar, Revv, Myles, Savaari, MakeMyTrip Cabs, Bharat Taxi
+
+• Bus/Rail booking: RedBus, AbhiBus, ConfirmTkt, Ixigo, IRCTC
+
+• Travel services: Indiahikes, Thrillophilia, Klook, Paytm Travel,
+  MakeMyTrip Forex, Thomas Cook Forex, BookMyForex, Atlys, VFS Global
+
+• OTT/Streaming: Netflix, Amazon Prime Video, Disney+ Hotstar, JioCinema,
+  SonyLIV, Zee5, MX Player, AltBalaji, Eros Now, ShemarooMe, Hoichoi, Aha,
+  Discovery+, Voot, Hungama, TVF, Airtel Xstream, Tata Play Binge, Sun NXT
+
+• Music: Spotify, YouTube (Premium), JioSaavn, Apple Music, Amazon Music,
+  SoundCloud, Gaana, Wynk Music, YouTube Music
+
+• DTH: Tata Play, Dish TV, d2h, Sun Direct, Airtel Digital TV, JioTV
+
+• SaaS/Productivity: Microsoft Office, Google (Drive/Workspace), iCloud,
+  Zoho Workplace, Proton, LinkedIn Premium, Canva, Figma, Miro, Notion, Gemini
+
+• Events/Entertainment: BookMyShow, PVR INOX, Paytm Insider, EventsHigh,
+  Cinepolis India, District
+
+• Fintech: CRED, Jupiter, Groww, Zerodha, NoBroker, CarDekho, Cars24,
+  Moneycontrol, Screener.in, ETMarkets
+
+• Pet care: Drools, Royal Canin, Pedigree, Farmina, Purina, Hill's Science Diet,
+  Heads Up for Tails, Supertails
+
+• Health & Fitness (online): HealthifyMe, Fittr, Fitelo, FITPASS, MyFitnessPal,
+  Strava, Ultrahuman, GOQii, mfine, Lybrate, Pazcare
+
+• Home services: Urban Company, Yes Madam, Snabbit, Pronto, Helpr,
+  Livspace, NoBroker, Nestaway
+
+• Resale/Classifieds: OLX India, Quikr, Resellpur
+
+• Rental services: Furlenco, RentoMojo, Cityfurnish, Rentickle, Rentova
+
+• Micromobility: Yulu, Bounce, Vogo
+
+• News/Media (subscriptions): Times of India, Economic Times, Hindustan Times,
+  The Hindu, Indian Express, Mint, Livemint, Business Standard, The Quint,
+  The Wire, Scroll.in, Firstpost, ThePrint
+
+• Astrology: AstroSage, AstroTalk
+
+• Jewellery D2C: Giva, Palmonas, Delta Charms, Salty, Upkarma, Cai
+
+── RULE FOR UNMAPPED BRANDS ────────────────────────────────────
+If a brand is NOT listed above:
+• Purchased online → other_online_spends
+• Purchased in physical store → other_offline_spends
+• If it's a restaurant/cafe → dining_or_going_out
+• If it's food delivery → online_food_ordering
+• If unsure → ASK the user: "Where do you buy from [brand] — online or in-store?"
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SECTION 4: CORRELATED CATEGORY PAIRS — ALWAYS ASK TOGETHER
@@ -203,9 +427,14 @@ FOOD & DINING GROUP:
 FUEL GROUP:
 • Fuel → also ask: vehicle insurance
 
+GROCERY GROUP:
+• Online grocery → also ask: offline grocery (many people do both)
+• Offline grocery → also ask: online grocery
+
 INSURANCE GROUP:
-• Health insurance → also ask: vehicle insurance
-• Vehicle insurance → also ask: fuel
+• Health insurance → also ask: vehicle insurance, life insurance
+• Vehicle insurance → also ask: fuel, life insurance
+• Life insurance → also ask: health insurance, vehicle insurance
 
 BILLS GROUP:
 • Mobile bills → also ask: electricity, water
@@ -229,8 +458,8 @@ AMOUNT PARSING:
 • "2 crore" = 2,00,00,000
 
 CRITICAL UNIT RULES:
-• Most fields are MONTHLY: amazon_spends, fuel, rent, bills, food, dining, shopping
-• These are ANNUAL: flights_annual, hotels_annual, insurance_health_annual, insurance_car_or_bike_annual
+• Most fields are MONTHLY: amazon_spends, flipkart_spends, other_online_spends, other_offline_spends, grocery_spends_online, offline_grocery, online_food_ordering, fuel, dining_or_going_out, mobile_phone_bills, electricity_bills, water_bills, rent, school_fees
+• These are ANNUAL: flights_annual, hotels_annual, insurance_health_annual, insurance_car_or_bike_annual, life_insurance
 • These are QUARTERLY: domestic_lounge_usage_quarterly, international_lounge_usage_quarterly
 
 CONVERSION EXAMPLES:
