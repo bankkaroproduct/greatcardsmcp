@@ -7,7 +7,7 @@ export class AuthManager {
   }
 
   private get tokenUrl(): string {
-    return process.env.PARTNER_TOKEN_URL || 'https://uat-platform.bankkaro.com/partner/token';
+    return process.env.PARTNER_TOKEN_URL || 'https://platform.bankkaro.com/partner/token';
   }
 
   async getToken(): Promise<string> {

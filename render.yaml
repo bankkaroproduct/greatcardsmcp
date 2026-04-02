@@ -15,8 +15,8 @@ services:
       - key: PARTNER_API_KEY
         sync: false
       - key: PARTNER_TOKEN_URL
-        value: https://uat-platform.bankkaro.com/partner/token
+        value: https://platform.bankkaro.com/partner/token
       - key: PARTNER_BASE_URL
-        value: https://uat-platform.bankkaro.com/partner
+        value: https://platform.bankkaro.com/partner
       - key: CACHE_TTL_HOURS
         value: "168"

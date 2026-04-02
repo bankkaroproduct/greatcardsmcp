@@ -43,7 +43,7 @@ try {
 function createMcpServer() {
   const server = new McpServer({
     name: 'great-cards',
-    version: '1.1.0',
+    version: '1.3.0',
     description: 'Great.Cards — AI-powered credit card recommendations for the Indian market. Compare 100+ cards, get personalized recommendations based on spending patterns, check eligibility, and find the best card for any use case.',
   });
 

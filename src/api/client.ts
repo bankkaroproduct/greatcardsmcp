@@ -1,7 +1,7 @@
 import { authManager } from './auth.js';
 import { cache } from '../cache/cache.js';
 
-const BASE_URL = (process.env.PARTNER_BASE_URL || 'https://uat-platform.bankkaro.com/partner').replace(/\/$/, '');
+const BASE_URL = (process.env.PARTNER_BASE_URL || 'https://platform.bankkaro.com/partner').replace(/\/$/, '');
 
 export interface SpendingData {
   amazon_spends?: number;
