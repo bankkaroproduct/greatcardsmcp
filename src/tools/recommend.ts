@@ -28,6 +28,7 @@ const LLM_CONTEXT = {
     ],
     fee_context: 'All fees include 18% GST. "Joining fee" is the first-year cost. Many cards waive the annual fee if you spend above a threshold (check get_card_details for waiver conditions).',
     savings_formula: 'net_annual_savings = annual_rewards_value + milestone_benefits + lounge_value - joining_fee - annual_fee. A positive number means the card pays for itself.',
+    context_check: 'If you haven\'t called get_advisor_context yet this session and need to collect more spending data, call it with topic="correlated_pairs" to know which categories to ask about next.',
   },
 };
 

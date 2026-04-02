@@ -22,6 +22,7 @@ const LLM_CONTEXT = {
       'Use card_alias from this response for any follow-up tool calls — NEVER construct aliases manually.',
       'If a card shows joining_fee as "Free", that means lifetime free (LTF) — no joining or annual fee.',
     ],
+    context_check: 'If you haven\'t called get_advisor_context yet, do so with topic="feature_mapping" to correctly map user feature requests to filters.',
   },
 };
 

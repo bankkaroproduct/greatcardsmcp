@@ -21,6 +21,7 @@ const LLM_CONTEXT = {
       'If a card has no tags or key_benefits, say "limited data available" — don\'t fill in from memory.',
       'If annual_fee_waiver shows "N/A", don\'t claim the fee can be waived.',
     ],
+    context_check: 'If you haven\'t called get_advisor_context yet, do so with topic="domain_knowledge" for card positioning and bank strength context to enrich the comparison.',
   },
 };
 

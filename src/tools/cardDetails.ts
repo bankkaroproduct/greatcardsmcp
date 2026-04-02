@@ -23,6 +23,7 @@ const LLM_CONTEXT = {
       'If annual_fee_waiver is null/N/A, say "no published fee waiver" — don\'t guess.',
       'The fees shown include 18% GST. Don\'t add GST again.',
     ],
+    context_check: 'If you haven\'t called get_advisor_context yet, do so with topic="domain_knowledge" for fee structures, reward types, and bank positioning context.',
   },
 };
 

@@ -15,6 +15,7 @@ import { cardDetailsSchema, getCardDetails } from './tools/cardDetails.js';
 import { listCardsSchema, listCards } from './tools/listCards.js';
 import { compareCardsSchema, compareCards } from './tools/compare.js';
 import { checkEligibilitySchema, checkEligibility } from './tools/eligibility.js';
+import { advisorContextSchema, getAdvisorContext } from './tools/advisorContext.js';
 import { cache } from './cache/cache.js';
 import { CARD_ADVISOR_PROMPT } from './prompts/cardAdvisor.js';
 
@@ -50,10 +51,12 @@ function createMcpServer() {
   server.tool(
     'recommend_cards',
     `PERSONALIZED credit card recommendations based on the user's actual spending pattern.
-Analyzes 100+ Indian credit cards and ranks by NET ANNUAL SAVINGS (rewards earned + lounge value + milestone benefits − joining fee − annual fee).
+Analyzes 100+ Indian credit cards and ranks by NET ANNUAL SAVINGS (rewards earned + lounge value + milestone benefits - joining fee - annual fee).
+
+PRE-REQUISITE: If you haven't called get_advisor_context yet this session, call it FIRST to load brand mappings and conversation flow. Without it, you'll mismap brands to spending keys.
 
 WHEN TO USE: User provides specific spending amounts OR mentions brands/categories they spend on.
-WHEN NOT TO USE: User just wants to browse cards without spending context → use list_cards instead.
+WHEN NOT TO USE: User just wants to browse cards without spending context -> use list_cards instead.
 
 SPENDING KEY MAPPING (CRITICAL — map user mentions to correct keys):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -108,6 +111,7 @@ IMPORTANT UNITS:
     'get_card_details',
     `Get FULL details of a specific credit card by its alias/slug.
 Returns: fees (with 18% GST), all benefits, rewards structure, eligibility, ratings.
+NOTE: If you haven't called get_advisor_context yet, do so first — it has the full card alias reference.
 
 WHEN TO USE: After recommend_cards or list_cards, when the user wants to deep-dive into a specific card.
 ALSO USE WHEN: User names a specific card like "tell me about HDFC Regalia" — construct the alias as lowercase-hyphenated bank-card-name (e.g. "hdfc-regalia-gold-credit-card").
@@ -135,9 +139,10 @@ IMPORTANT: Aliases are inconsistent (some have -credit-card suffix, some don't, 
   server.tool(
     'list_cards',
     `Browse and filter credit cards without needing spending data.
+NOTE: If you haven't called get_advisor_context yet, do so first — it has category mappings and feature-to-filter rules.
 
 WHEN TO USE: User wants to explore/discover cards, asks about a category, or hasn't shared spending details.
-WHEN NOT TO USE: User has given spending amounts → use recommend_cards for personalized ranking.
+WHEN NOT TO USE: User has given spending amounts -> use recommend_cards for personalized ranking.
 
 CATEGORY MAPPING (map user intent to category slug):
 • "premium" / "luxury" / "lounge access" / "travel" / "airport" → best-travel-credit-card
@@ -174,6 +179,7 @@ COMMON FOLLOW-UP: After listing, user often picks a card → use get_card_detail
   server.tool(
     'compare_cards',
     `Compare 2-3 credit cards side by side.
+NOTE: If you haven't called get_advisor_context yet, do so first — it has correct card alias patterns.
 
 WHEN TO USE: User is deciding between specific cards, says "X vs Y", or asks "which is better".
 REQUIRES: card_aliases from previous recommend_cards or list_cards results.
@@ -195,6 +201,7 @@ Common comparisons: HDFC Regalia vs Axis Magnus, SBI Cashback vs ICICI Amazon Pa
   server.tool(
     'check_eligibility',
     `Check which cards a user can actually APPLY for based on pincode, income, and employment.
+NOTE: If you haven't called get_advisor_context yet, do so first — it has income conversion rules and employment mapping.
 
 WHEN TO USE: User asks "can I get this card?", "which cards am I eligible for?", "I earn X, what can I get?", or before recommending cards to someone with a stated income.
 
@@ -213,6 +220,36 @@ IDEAL FLOW: check_eligibility first → then recommend_cards with spending to fi
     async (input) => {
       try {
         const result = await checkEligibility(checkEligibilitySchema.parse(input));
+        return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+      } catch (err: any) {
+        return { content: [{ type: 'text' as const, text: `Error: ${err.message}` }], isError: true };
+      }
+    }
+  );
+
+  // ── Tool: get_advisor_context ────────────────────────────────────────────
+  server.tool(
+    'get_advisor_context',
+    `CALL THIS FIRST before starting any credit card advisory conversation.
+
+Returns the complete CardGenius advisory playbook: conversation flow logic, 700+ brand-to-spending-key mappings, correlated category pairs, unit conversion rules, persona handling, vague query responses, and Indian credit card domain knowledge.
+
+WITHOUT this context, you will:
+- Mismap brands to wrong spending keys (e.g. putting Swiggy Instamart under food delivery instead of grocery)
+- Miss correlated categories (e.g. asking about flights but forgetting hotels and lounges)
+- Get units wrong (e.g. treating annual insurance as monthly)
+- Not know how to handle vague queries, personas, or feature requests
+
+USAGE:
+- Call with topic="full" at the START of every conversation (~13K tokens, covers everything)
+- Or call with a specific topic for targeted context: "brand_mappings", "correlated_pairs", "unit_conversion", "personas", "domain_knowledge", etc.
+- You only need to call this ONCE per session — the context applies to all subsequent interactions.
+
+FOR CHATBOT DEVELOPERS: Call this at session init and inject the "context" field into your system prompt.`,
+    advisorContextSchema.shape,
+    async (input) => {
+      try {
+        const result = getAdvisorContext(advisorContextSchema.parse(input));
         return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
       } catch (err: any) {
         return { content: [{ type: 'text' as const, text: `Error: ${err.message}` }], isError: true };
@@ -491,7 +528,7 @@ async function main() {
             '/messages': 'Legacy SSE message endpoint (POST)',
             '/health': 'Health check (GET)',
           },
-          tools: ['recommend_cards', 'get_card_details', 'list_cards', 'compare_cards', 'check_eligibility'],
+          tools: ['get_advisor_context', 'recommend_cards', 'get_card_details', 'list_cards', 'compare_cards', 'check_eligibility'],
           spending_keys: 21,
           brands_mapped: '700+',
         });
