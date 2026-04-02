@@ -4,10 +4,14 @@ import { feeCalc } from '../enrichment/feeUtils.js';
 
 const LLM_CONTEXT = {
   _llm_instructions: {
+    output_format: {
+      table_rule: 'When showing 3+ cards, ALWAYS use a markdown table. Columns: Card | Bank | Fee (incl. GST) | Highlight. Rank by fee tier (Free first, then ascending).',
+      fee_tier_grouping: 'Group cards by fee tier: "🆓 Lifetime Free", "💰 Budget (under ₹1K)", "⭐ Mid-range (₹1K-5K)", "👑 Premium (₹5K+)". This helps users self-select.',
+      monthly_framing: 'Show fees as monthly when above ₹1K: "₹5,900/yr (₹492/mo)" — makes premium cards feel less intimidating.',
+    },
     how_to_present: [
-      'Present as a clean list with card name, bank, and fee.',
+      'Present as a clean, scannable list or table — NOT raw data.',
       'If the user asked about a category, highlight what makes these cards good for that category.',
-      'Group by fee tier if showing many cards: "Free cards: ...", "Mid-range (₹500-2K): ...", "Premium (₹5K+): ..."',
       'ALWAYS mention the total_available count: "There are X [category] cards available. Here are the top Y."',
     ],
     next_actions: [
@@ -15,6 +19,7 @@ const LLM_CONTEXT = {
       'Offer details: "Want to know more about any of these? I can show you the full benefits and rewards structure."',
       'If user picks a card: use get_card_details with the card_alias from this response.',
       'If user wants to compare: use compare_cards with 2-3 card_alias values from this response.',
+      'ALWAYS end with a clear CTA — never just dump a list and stop.',
     ],
     anti_hallucination: [
       'NEVER make up benefits or rewards not shown in the response.',

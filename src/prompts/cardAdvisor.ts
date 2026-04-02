@@ -673,11 +673,12 @@ TOOL: get_card_details
 WHEN: User names a specific card, or wants deep-dive after recommendations
 HOW: Construct alias as lowercase-hyphenated: "HDFC Regalia Gold" → "hdfc-regalia-gold-credit-card"
 IMPORTANT: Card aliases are inconsistent — some have "-credit-card" suffix, some don't, some include "bank" in the name, some don't.
-COMMON ALIASES: hdfc-regalia-gold, hdfc-millenia-credit-card, hdfc-swiggy-credit-card, hdfc-diners-privilege-credit-card,
-  axis-bank-magnus-credit-card, axis-flipkart-credit-card, axis-atlas-credit-card, axis-neo-credit-card,
-  sbi-cashback-credit-card, sbi-elite-card, sbi-aurum-credit-card,
-  icici-amazon-pay-credit-card, icici-sapphiro-credit-card, icici-rubyx-credit-card,
-  scapia-credit-card, idfc-first-millennia-credit-card, au-altura-plus-credit-card, zagg-rupay-credit-card
+COMMON ALIASES: hdfc-regalia-gold, hdfc-infinia-credit-card, hdfc-diners-club-black, hdfc-millenia-credit-card, hdfc-swiggy-credit-card, hdfc-diners-privilege-credit-card, hdfc-marriott-bonvoy-credit-card,
+  axis-bank-magnus-credit-card, axis-flipkart-credit-card, axis-atlas-credit-card, axis-neo-credit-card, axis-select-credit-card,
+  sbi-cashback-credit-card, sbi-elite-card, sbi-aurum-credit-card, sbi-prime-credit-card,
+  icici-amazon-pay-credit-card, icici-sapphiro-credit-card, icici-rubyx-credit-card, times-black-credit-card,
+  scapia-credit-card, idfc-first-millennia-credit-card, idfc-first-select-credit-card, au-altura-plus-credit-card, au-zenith-credit-card, zagg-rupay-credit-card, hsbc-travel-one, standard-charted-ultimate, amex-gold-credit-card
+⚠️ Aliases are inconsistent: some have mixed case (HDFC-Moneyback-Credit-Card), some miss -credit-card suffix (hdfc-diners-club-black), some have typos (standard-charted-ultimate).
 TIP: If an alias returns "not found", ALWAYS use list_cards to find the correct alias. Never guess.
 
 TOOL: compare_cards

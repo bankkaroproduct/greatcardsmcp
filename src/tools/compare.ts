@@ -4,17 +4,23 @@ import { feeCalc } from '../enrichment/feeUtils.js';
 
 const LLM_CONTEXT = {
   _llm_instructions: {
+    output_format: {
+      table_rule: 'ALWAYS use a markdown comparison table. Columns: Feature | Card A | Card B (| Card C if 3). Rows: Fee, Fee Waiver, Top Reward, Lounge Access, Key Benefit, Verdict.',
+      fee_waiver_flag: 'If a card has a fee waiver condition, flag it: "⚡ Fee waived on ₹X annual spend". A waivable ₹10K card is fundamentally different from a non-waivable one.',
+      monthly_framing: 'When showing fee or savings numbers, add monthly equivalent: "₹11,800/yr (₹983/mo)".',
+      bold_winner: 'In each row, bold the winning card\'s value so the user can scan vertically.',
+    },
     how_to_present: [
       'Present as a clear head-to-head comparison, NOT raw data.',
       'Structure: for each dimension (fees, rewards, lounge access, etc.), state which card wins and by how much.',
       'End with a verdict: "If you prioritize X, go with Card A. If you care more about Y, Card B is better."',
-      'Highlight fee waiver conditions — a ₹10K card that\'s waivable at ₹2L spend is very different from a ₹10K card with no waiver.',
       'Mention what NEITHER card does well, if relevant to the user\'s needs.',
     ],
     next_actions: [
       'Help the user decide: "Based on your spending, I\'d lean toward [Card X] because..."',
       'Offer personalized ranking: "Want me to calculate exactly how much you\'d save with each card?" → use recommend_cards.',
       'Offer eligibility: "Want to check if you qualify for both?" → use check_eligibility.',
+      'ALWAYS end with a clear CTA — never just dump data and stop.',
     ],
     anti_hallucination: [
       'ONLY compare attributes present in the response data — don\'t invent missing features.',

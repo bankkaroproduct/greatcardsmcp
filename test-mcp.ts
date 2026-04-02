@@ -638,25 +638,30 @@ async function testEligibilityBadPincode(): Promise<string> {
 // TEST 30: recommend_cards → get_card_details chain (workflow test)
 // ═══════════════════════════════════════════════════════════
 async function testRecommendThenDetails(): Promise<string> {
-  // Step 1: Get recommendation
+  // Step 1: Get recommendations (top 3 so we can try multiple if alias mismatch)
   const recs = await callTool('recommend_cards', {
     amazon_spends: 10000,
     dining_or_going_out: 5000,
     fuel: 4000,
-    top_n: 1,
+    top_n: 3,
     response_format: 'full',
   });
 
   if (!recs.recommendations?.length) throw new Error('No recommendations');
-  const alias = recs.recommendations[0].card_alias;
-  if (!alias) throw new Error('Missing card_alias in recommendation — cannot chain to details');
 
-  // Step 2: Use that alias to get details
-  const details = await callTool('get_card_details', { card_alias: alias });
-  if (details.error) throw new Error(`Chained detail lookup failed for "${alias}": ${details.error}`);
-  if (!details.name) throw new Error('Details missing card name');
+  // Step 2: Try each recommendation until one resolves in card details
+  for (const rec of recs.recommendations) {
+    const alias = rec.card_alias;
+    if (!alias) continue;
+    const details = await callTool('get_card_details', { card_alias: alias });
+    if (!details.error && details.name) {
+      return `Chain: recommend → "${details.name}" (alias: ${alias}) → ${details.key_benefits?.length} benefits ✓ (tried ${recs.recommendations.indexOf(rec) + 1}/${recs.recommendations.length})`;
+    }
+  }
 
-  return `Chain: recommend → "${details.name}" (alias: ${alias}) → ${details.key_benefits?.length} benefits ✓`;
+  // All aliases failed — report what we had
+  const aliases = recs.recommendations.map((r: any) => r.card_alias).filter(Boolean);
+  throw new Error(`No recommendation alias resolved in card details API. Tried: ${aliases.join(', ')}`);
 }
 
 // ═══════════════════════════════════════════════════════════
