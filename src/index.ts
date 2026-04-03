@@ -399,9 +399,39 @@ async function main() {
             }
           }
 
-          // New session — any POST without session ID starts a new session
-          // (isInitializeRequest check is too strict for some clients)
-          if (!sessionId) {
+          // New session or stale session recovery
+          const isStaleSession = sessionId && !transports[sessionId];
+          if (!sessionId || isStaleSession) {
+            if (isStaleSession && !isInitializeRequest(body)) {
+              // Stale session sending a tool call — server was restarted/redeployed.
+              // Auto-recover: create a new session, silently initialize it, then handle the tool call.
+              console.error(`[great-cards] ⚠️ Stale session ${sessionId!.slice(0, 8)}... — auto-recovering for ${body?.method} id=${body?.id}`);
+
+              const transport = new StreamableHTTPServerTransport({
+                sessionIdGenerator: () => randomUUID(),
+              });
+              const sessionServer = createMcpServer();
+              await sessionServer.connect(transport);
+
+              transport.onclose = () => {
+                const sid = Object.entries(transports).find(([, t]) => t === transport)?.[0];
+                if (sid) {
+                  delete transports[sid];
+                  console.error(`[great-cards] Streamable session ended (recovered): ${client.name}`);
+                }
+              };
+
+              // Handle the actual tool call on the new session
+              await transport.handleRequest(req, res, body);
+
+              const newSid = res.getHeader('mcp-session-id') as string;
+              if (newSid) {
+                transports[newSid] = transport;
+                console.error(`[great-cards] ✅ Auto-recovered session: ${newSid.slice(0, 8)}... (replaced stale ${sessionId!.slice(0, 8)}...)`);
+              }
+              return;
+            }
+
             console.error(`[great-cards] Creating new streamable session. isInit=${isInitializeRequest(body)}`);
             const transport = new StreamableHTTPServerTransport({
               sessionIdGenerator: () => randomUUID(),
