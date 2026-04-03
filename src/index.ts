@@ -293,6 +293,12 @@ FOR CHATBOT DEVELOPERS: Call this at session init and inject the "context" field
 // ── Start ──────────────────────────────────────────────────────────────
 async function main() {
   const mode = (process.env.MCP_TRANSPORT || 'stdio').toLowerCase();
+
+  // Log which API endpoints the server will use (helps diagnose UAT vs production issues)
+  console.error(`[great-cards] BASE_URL = ${process.env.PARTNER_BASE_URL || 'https://platform.bankkaro.com/partner'}`);
+  console.error(`[great-cards] TOKEN_URL = ${process.env.PARTNER_TOKEN_URL || 'https://platform.bankkaro.com/partner/token'}`);
+  console.error(`[great-cards] API_KEY = ${(process.env.PARTNER_API_KEY || '').slice(0, 8)}...`);
+
   const server = createMcpServer();
 
   if (mode === 'sse') {
