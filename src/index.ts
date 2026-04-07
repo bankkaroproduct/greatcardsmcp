@@ -363,6 +363,7 @@ async function main() {
           auth_enabled: clientAuth.isEnabled,
           active_sessions: Object.keys(transports).length,
           cache: cache.stats(),
+          api_base: process.env.PARTNER_BASE_URL || 'https://platform.bankkaro.com/partner',
         });
         return;
       }
