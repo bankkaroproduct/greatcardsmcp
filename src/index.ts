@@ -355,7 +355,7 @@ async function main() {
       }
 
       // Health check (no auth required)
-      if (req.url?.startsWith('/health')) {
+      if (req.url?.startsWith('/mcp/health') || req.url?.startsWith('/health')) {
         sendJSON(res, 200, {
           status: 'ok',
           server: 'great-cards',
@@ -482,9 +482,18 @@ async function main() {
           }
           // GET without session — return server info (not an error)
           sendJSON(res, 200, {
-            name: 'great-cards',
+            name: 'Great.Cards MCP Server',
             version: '1.3.0',
-            description: 'Great.Cards MCP Server — POST to this endpoint to initialize a session',
+            description: 'AI-powered credit card recommendations for the Indian market.',
+            endpoints: {
+              '/mcp': 'Streamable HTTP transport (POST to initialize, GET for SSE stream, DELETE to close) — for Claude custom connectors',
+              '/mcp/sse': 'Legacy SSE transport (GET) — for older MCP clients',
+              '/mcp/messages': 'Legacy SSE message endpoint (POST)',
+              '/mcp/health': 'Health check (GET)',
+            },
+            tools: ['get_advisor_context', 'recommend_cards', 'get_card_details', 'list_cards', 'compare_cards', 'check_eligibility'],
+            spending_keys: 21,
+            brands_mapped: '700+',
           });
           return;
         }
@@ -525,9 +534,9 @@ async function main() {
       }
       process.env.PARTNER_API_KEY = client.partnerApiKey;
 
-      if (urlPath === '/sse' && req.method === 'GET') {
+      if (urlPath === '/mcp/sse' && req.method === 'GET') {
         const sessionServer = createMcpServer();
-        const sseTransport = new SSEServerTransport('/messages', res);
+        const sseTransport = new SSEServerTransport('/mcp/messages', res);
 
         transports[sseTransport.sessionId] = sseTransport;
         console.error(`[great-cards] SSE session started: ${client.name} (${sseTransport.sessionId.slice(0, 8)}...)`);
@@ -541,7 +550,7 @@ async function main() {
         return;
       }
 
-      if (urlPath === '/messages' && req.method === 'POST') {
+      if (urlPath === '/mcp/messages' && req.method === 'POST') {
         try {
           const url = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
           const sessionId = url.searchParams.get('sessionId');
@@ -555,25 +564,6 @@ async function main() {
         return;
       }
 
-      // Root / — landing page
-      if (urlPath === '/' || urlPath === '') {
-        sendJSON(res, 200, {
-          name: 'Great.Cards MCP Server',
-          version: '1.3.0',
-          description: 'AI-powered credit card recommendations for the Indian market.',
-          endpoints: {
-            '/mcp': 'Streamable HTTP transport (POST to initialize, GET for SSE stream, DELETE to close) — for Claude custom connectors',
-            '/sse': 'Legacy SSE transport (GET) — for older MCP clients',
-            '/messages': 'Legacy SSE message endpoint (POST)',
-            '/health': 'Health check (GET)',
-          },
-          tools: ['get_advisor_context', 'recommend_cards', 'get_card_details', 'list_cards', 'compare_cards', 'check_eligibility'],
-          spending_keys: 21,
-          brands_mapped: '700+',
-        });
-        return;
-      }
-
       res.writeHead(404);
       res.end('Not found');
     });
@@ -582,8 +572,8 @@ async function main() {
       console.error(`[great-cards] MCP server v1.3.0 running at http://0.0.0.0:${port}`);
       console.error(`[great-cards] Auth: ${clientAuth.isEnabled ? 'ENABLED' : 'DISABLED (using default key)'}`);
       console.error(`[great-cards] Streamable HTTP: POST/GET/DELETE /mcp (for Claude connectors)`);
-      console.error(`[great-cards] Legacy SSE: GET /sse + POST /messages`);
-      console.error(`[great-cards] Health: GET /health`);
+      console.error(`[great-cards] Legacy SSE: GET /mcp/sse + POST /mcp/messages`);
+      console.error(`[great-cards] Health: GET /mcp/health`);
     });
   } else {
     // Default: stdio transport (for Claude Desktop, Claude Code, local MCP clients)
