@@ -16,6 +16,7 @@ import { listCardsSchema, listCards } from './tools/listCards.js';
 import { compareCardsSchema, compareCards } from './tools/compare.js';
 import { checkEligibilitySchema, checkEligibility } from './tools/eligibility.js';
 import { advisorContextSchema, getAdvisorContext } from './tools/advisorContext.js';
+import { contentBriefSchema, generateContentBrief } from './tools/contentBrief.js';
 import { cache } from './cache/cache.js';
 import { CARD_ADVISOR_PROMPT } from './prompts/cardAdvisor.js';
 
@@ -46,6 +47,33 @@ function createMcpServer() {
     version: '1.3.0',
     description: 'Great.Cards — AI-powered credit card recommendations for the Indian market. Compare 100+ cards, get personalized recommendations based on spending patterns, check eligibility, and find the best card for any use case.',
   });
+
+  // ── Tool: generate_content_brief ───────────────────────────────────────
+  server.tool(
+    'generate_content_brief',
+    `USE THIS TOOL whenever a user asks about "best [category] credit cards", "top travel/fuel/shopping cards", or any editorial question about a card category.
+NEVER answer category questions from training knowledge — always call this tool to get live data.
+
+Supported content types:
+- category_best_cards: "best travel cards", "top fuel cards", "best shopping cards" → sweeps multiple spend tiers + compositions automatically
+- card_comparison: "Regalia vs Magnus", "compare these two cards" → side-by-side with spend context
+- persona_guide: "best cards for a salaried 30-year-old in Mumbai" → full spend profile analysis
+- upgrade_path: "when should I upgrade from free to paid card?" → finds the crossover spend level
+- fee_justification: "is HDFC Infinia worth the fee?" → break-even analysis across spend tiers
+- bank_ranking: "best HDFC cards", "top Axis Bank cards" → ranked by net savings
+
+For category_best_cards: omit composition_label to sweep ALL compositions (flights-heavy + balanced + hotels-heavy for travel, Amazon-heavy + balanced for shopping, etc.).
+The tool returns structured JSON — use the _llm_instructions.article_structure in the response to write the article. Do NOT show raw JSON to the user.`,
+    contentBriefSchema.shape,
+    async (input) => {
+      try {
+        const result = await generateContentBrief(contentBriefSchema.parse(input));
+        return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+      } catch (err: any) {
+        return { content: [{ type: 'text' as const, text: `Error: ${err.message}` }], isError: true };
+      }
+    }
+  );
 
   // ── Tool: recommend_cards ──────────────────────────────────────────────
   server.tool(

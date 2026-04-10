@@ -35,8 +35,8 @@ const LLM_CONTEXT = {
       'If spending_breakdown is empty or missing for a card, say "detailed breakdown unavailable" — don\'t guess.',
       'Use card_alias from this response for any follow-up tool calls — NEVER construct aliases manually.',
     ],
-    fee_context: 'All fees include 18% GST. "Joining fee" is the first-year cost. Many cards waive the annual fee if you spend above a threshold (check get_card_details for waiver conditions).',
-    savings_formula: 'net_annual_savings = annual_rewards_value + milestone_benefits + lounge_value - joining_fee - annual_fee. A positive number means the card pays for itself.',
+    fee_context: 'All fees include 18% GST. "Joining fee" is a one-time Year 1 cost (not deducted from annual savings). "Annual fee" is the recurring yearly cost. Many cards waive the annual fee if you spend above a threshold (check get_card_details for waiver conditions).',
+    savings_formula: 'net_annual_savings = annual_rewards_value + milestone_benefits + lounge_value - annual_fee. Joining fee is excluded as it is a one-time cost. A positive number means the card pays for itself annually.',
     context_check: 'If you haven\'t called get_advisor_context yet this session and need to collect more spending data, call it with topic="correlated_pairs" to know which categories to ask about next.',
   },
 };

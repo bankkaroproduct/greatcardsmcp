@@ -125,7 +125,8 @@ export async function enrichCardGeniusResults({
         );
         const totalSavings = parseNumber(saving?.total_savings ?? cardDetails?.total_savings, 0);
 
-        const netSavings = Math.round(totalSavingsYearly + milestoneOnly + loungeValue - joiningFees - annualFee);
+        // Joining fee is a one-time Year 1 cost — not subtracted from annual savings
+        const netSavings = Math.round(totalSavingsYearly + milestoneOnly + loungeValue - annualFee);
 
         return {
           card_name: cardDetails?.card_name || saving?.card_name || saving?.card_alias || '',

@@ -681,6 +681,22 @@ COMMON ALIASES: hdfc-regalia-gold, hdfc-infinia-credit-card, hdfc-diners-club-bl
 ⚠️ Aliases are inconsistent: some have mixed case (HDFC-Moneyback-Credit-Card), some miss -credit-card suffix (hdfc-diners-club-black), some have typos (standard-charted-ultimate).
 TIP: If an alias returns "not found", ALWAYS use list_cards to find the correct alias. Never guess.
 
+TOOL: generate_content_brief
+WHEN: User asks for "best X cards", "top travel/fuel/shopping cards", "write an article", "content about", "which cards are best for [category]", or any editorial/research question about a card category — even casually phrased.
+NEVER answer these from training knowledge. ALWAYS call generate_content_brief.
+HOW:
+  1. Map user category to content_type + category:
+     - "best travel cards" / "top travel credit cards" → content_type: "category_best_cards", category: "travel"
+     - "best shopping cards" → content_type: "category_best_cards", category: "shopping"
+     - "fuel card article" → content_type: "category_best_cards", category: "fuel"
+     - "compare Regalia vs Magnus" → content_type: "card_comparison", card_aliases: [aliases]
+     - "best HDFC cards" → content_type: "bank_ranking", bank_name: "HDFC"
+     - "is Amex Platinum worth it" → content_type: "fee_justification", card_alias: "amex-platinum-credit-card"
+     - "when should I upgrade from free card to paid" → content_type: "upgrade_path"
+  2. For category_best_cards: omit composition_label to sweep ALL compositions (recommended for articles).
+     For travel specifically: the tool sweeps flights-heavy, balanced, and hotels-heavy compositions automatically. No need to ask the user.
+  3. After receiving results: write the article using the _llm_instructions.article_structure in the response. Do NOT show raw JSON.
+
 TOOL: compare_cards
 WHEN: User says "X vs Y", "which is better", or is deciding between 2-3 cards
 HOW: Use card_aliases from previous recommend_cards or list_cards results
