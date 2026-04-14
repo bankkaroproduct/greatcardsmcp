@@ -173,6 +173,5 @@ export async function enrichCardGeniusResults({
 
   return processed
     .filter((card): card is CardGeniusResult => Boolean(card))
-    .filter((card) => card.net_savings > 0)
     .sort((a, b) => b.net_savings - a.net_savings);
 }

@@ -1,0 +1,379 @@
+﻿Session: b28a37ec
+
+=== TEST 1: SBI Cashback @ Γé╣5K Amazon ===
+  SBI Cashback not in top 10. Listing all:
+    ICICI Amazon Pay Credit Card: rewards=3000 join=0 annual=0 net=3000
+    HDFC SWIGGY : rewards=3000 join=0 annual=0 net=3000
+    AMEX SMART EARN: rewards=2010 join=0 annual=0 net=2010
+    Biz Black Metal Edition : rewards=2004 join=0 annual=0 net=2004
+    Axis Supermoney Rupay Card: rewards=1800 join=0 annual=0 net=1800
+    PIXEL Play Credit Card: rewards=1800 join=0 annual=0 net=1800
+    Jupiter Edge: rewards=1200 join=0 annual=0 net=1200
+    IndusInd PLATINUM RUPAY: rewards=900 join=0 annual=0 net=900
+    HDFC MoneyBack Plus Credit Card: rewards=2001 join=590 annual=590 net=821
+    HSBC Platinum Credit Card: rewards=804 join=0 annual=0 net=804
+
+=== TEST 2: ICICI Amazon Pay @ Γé╣5K Amazon ===
+  Found: ICICI Amazon Pay Credit Card
+  annual_rewards: 3000
+  joining_fee: 0
+  annual_fee: 0
+  net (MCP): 3000
+  CORRECT net (- annual_fee only): 3000
+
+=== TEST 3: SBI Cashback FULL recommend response ===
+
+=== TEST 4: SBI Cashback card details (checking for active/status flag) ===
+  Top-level keys: [
+  'name',
+  'bank',
+  'card_type',
+  'rating',
+  'user_ratings',
+  'image',
+  'fees',
+  'key_benefits',
+  'tags',
+  'reward_conversion_rate',
+  'detailed_benefits',
+  'card_alias',
+  '_llm_instructions'
+]
+  name: SBI Cashback Credit Card
+  fees: {"joining":"Γé╣1,179 (Γé╣999 + GST)","annual":"Γé╣1,179 (Γé╣999 + GST)","annual_fee_waiver":"The annual fee is waived if you spend Γé╣2 lakh or more in a year on your card, as per bank policy."}
+  tags: [ 'Shopping', 'Online Food Ordering', 'Dining', 'Grocery Shopping' ]
+
+=== TEST 5: list_cards brief - checking all returned fields ===
+  First card all keys: [
+  'name',       'bank',
+  'card_type',  'joining_fee',
+  'annual_fee', 'rating',
+  'tags',       'key_benefits',
+  'card_alias', 'image'
+]
+  First card: {
+  "name": "Axis Shoppers Stop Credit Card",
+  "bank": "",
+  "card_type": "VISA,Mastercard",
+  "joining_fee": "Γé╣590 (Γé╣500 + GST)",
+  "annual_fee": "Γé╣590 (Γé╣500 + GST)",
+  "rating": 4,
+  "tags": [
+    "Shopping",
+    "Dining"
+  ],
+  "key_benefits": [
+    "Earn 2 First Citizen Points Per Γé╣200",
+    "Earn 20 First Citizen Points per Γé╣200 ",
+    "Get 15% off on EazyDiner up to Γé╣500"
+  ],
+  "card_alias": "axis-shopper-stop-credit-card",
+  "image": "https://offline-agent-bk.s3.ap-south-1.amazonaws.com/BankKaro_Mockup%20%2817%29.png"
+}
+
+=== TEST 6: Flipkart spends Γé╣5K - looking for Axis Flipkart ===
+  Found: AXIS FLIPKART
+  annual_rewards: 3000
+  joining_fee: 590
+  annual_fee: 590
+  net (MCP): 1820
+  CORRECT net: 2410
+  Manual: 5000*0.05*12=3000, fee=0?, expected=3000
+
+=== TEST 7: Food delivery Γé╣5K - HDFC Swiggy ===
+  HDFC SWIGGY : rewards=6000 milestones=0 join=0 annual=0 net_mcp=6000 net_correct=6000
+  AXIS AIRTEL CC: rewards=6000 milestones=0 join=590 annual=590 net_mcp=4820 net_correct=5410
+  AMEX SMART EARN: rewards=4020 milestones=0 join=0 annual=0 net_mcp=4020 net_correct=4020
+  HSBC Live+ Credit Card: rewards=6000 milestones=0 join=1179 annual=1179 net_mcp=3642 net_correct=4821
+  PIXEL Play Credit Card: rewards=3000 milestones=0 join=0 annual=0 net_mcp=3000 net_correct=3000
+
+=== TEST 8: Full response with spending_breakdown (brands object) ===
+  #1 Card: HDFC SWIGGY 
+  spending_breakdown: {
+  "amazon_spends": {
+    "on": "amazon_spends",
+    "spend": 5000,
+    "savings": 250,
+    "maxCap": 1500,
+    "explanation": [
+      "<div>On spends of Γé╣60K on <b>Amazon</b> you get 5% Cashback, which is <b>Γé╣3,000</b>.</div>"
+    ],
+    "cashback_percentage": "5",
+    "totalMaxCap": 3500
+  },
+  "flipkart_spends": {
+    "on": "flipkart_spends",
+    "spend": 3000,
+    "savings": 150,
+    "maxCap": 1500,
+    "explanation": [
+      "<div>On spends of Γé╣36K on <b>Flipkart</b> you get 5% Cashback, which is <b>Γé╣1,800</b>.</div>"
+    ],
+    "cashback_percentage": "5",
+    "totalMaxCap": 3500
+  },
+  "grocery_spends_online": {
+    "on": "grocery_spends_online",
+    "spend": 0,
+    "savings": 0,
+    "maxCap": 1500,
+    "explanation": [
+      "<div>On spends of Γé╣0 on <b>Swiggy Instamart, Amazon, Flipkart</b> you get 10% Cashback, which is <b>Γé╣0</b>.</div>"
+    ],
+    "cashback_percentage": "10",
+    "totalMaxCap": 3500
+  },
+  "online_food_ordering": {
+    "on": "online_food_ordering",
+    "spend": 3000,
+    "savings": 300,
+    "maxCap": 1500,
+    "explanation": [
+      "<div>On spends of Γé╣36K on <b>Swiggy</b> you get 10% Cashback, which is <b>Γé╣3,600</b>.</div>"
+    ],
+    "cashback_percentage": "10",
+    "totalMaxCap": 3500
+  },
+  "other_online_spends": {
+    "on": "other_online_spends",
+    "spend": 0,
+    "savings": 0,
+    "maxCap": 1500,
+    "explanation": [
+      "<div>On spends of Γé╣0 on <b>Ajio, Meesho, Myntra, Nykaa, Ola, Uber, BookMyShow, PharmEasy, NetMeds, Zoom, ANI Technologie</b> you get 5% Cashback, which is <b>Γé╣0</b>.</div>"
+    ],
+    "cashback_percentage": "5",
+    "totalMaxCap": 3500
+  },
+  "other_offline_spends": {
+    "on": "other_offline_spends",
+    "spend": 0,
+    "savings": 0,
+    "maxCap": 1500,
+    "explanation": [
+      "<div>On spends of Γé╣0 on <b>eligible brands</b> you get 5% Cashback, which is <b>Γé╣0</b>.</div>"
+    ],
+    "cashback_percentage": "5",
+    "totalMaxCap": 3500
+  },
+  "dining_or_going_out": {
+    "on": "dining_or_going_out",
+    "spend": 0,
+    "savings": 0,
+    "maxCap": 1500,
+    "explanation": [
+      "<div>On spends of Γé╣0 on <b>Swiggy Dineout</b> you get 10% Cashback, which is <b>Γé╣0</b>.</div>"
+    ],
+    "cashback_percentage": "10",
+    "totalMaxCap": 3500
+  },
+  "fuel": {
+    "on": "fuel",
+    "spend": 0,
+    "savings": 0,
+    "maxCap": 0,
+    "explanation": [
+      "<div>On spends of Γé╣0 on <b>eligible brands</b> you get 0% Cashback, which is <b>Γé╣0</b>.</div>"
+    ],
+    "cashback_percentage": "0",
+    "totalMaxCap": 0
+  },
+  "school_fees": {
+    "on": "school_fees",
+    "spend": 0,
+    "savings": 0,
+    "maxCap": 0,
+    "explanation": [
+      "<div>On spends of Γé╣0 on <b>eligible brands</b> you get 0% Cashback, which is <b>Γé╣0</b>.</div>"
+    ],
+    "cashback_percentage": "0",
+    "totalMaxCap": 0
+  },
+  "rent": {
+    "on": "rent",
+    "spend": 0,
+    "savings": 0,
+    "maxCap": 0,
+    "explanation": [
+      "<div>On spends of Γé╣0 on <b>eligible brands</b> you get 0% Cashback, which is <b>Γé╣0</b>.</div>"
+    ],
+    "cashback_percentage": "0",
+    "totalMaxCap": 0
+  },
+  "mobile_phone_bills": {
+    "on": "mobile_phone_bills",
+    "spend": 0,
+    "savings": 0,
+    "maxCap": 500,
+    "explanation": [
+      "<div>On spends of Γé╣0 on <b>eligible brands</b> you get 1% Cashback, which is <b>Γé╣0</b>.</div>"
+    ],
+    "cashback_percentage": "1",
+    "totalMaxCap": 3500
+  },
+  "electricity_bills": {
+    "on": "electricity_bills",
+    "spend": 0,
+    "savings": 0,
+    "maxCap": 500,
+    "explanation": [
+      "<div>On spends of Γé╣0 on <b>eligible brands</b> you get 1% Cashback, which is <b>Γé╣0</b>.</div>"
+    ],
+    "cashback_percentage": "1",
+    "totalMaxCap": 3500
+  },
+  "water_bills": {
+    "on": "water_bills",
+    "spend": 0,
+    "savings": 0,
+    "maxCap": 500,
+    "explanation": [
+      "<div>On spends of Γé╣0 on <b>eligible brands</b> you get 1% Cashback, which is <b>Γé╣0</b>.</div>"
+    ],
+    "cashback_percentage": "1",
+    "totalMaxCap": 3500
+  },
+  "ott_channels": {
+    "on": "ott_channels",
+    "spend": 0,
+    "savings": 0,
+    "maxCap": 1500,
+    "explanation": [
+      "<div>On spends of Γé╣0 on <b>eligible brands</b> you get 5% Cashback, which is <b>Γé╣0</b>.</div>"
+    ],
+    "cashback_percentage": "5",
+    "totalMaxCap": 3500
+  },
+  "new_monthly_cat_1": {
+    "on": "new_monthly_cat_1",
+    "spend": 0,
+    "savings": 0,
+    "maxCap": 1500,
+    "explanation": [
+      "<div>On spends of Γé╣0 on <b>eligible brands</b> you get 5% Cashback, which is <b>Γé╣0</b>.</div>"
+    ],
+    "cashback_percentage": "5",
+    "totalMaxCap": 3500
+  },
+  "new_monthly_cat_2": {
+    "on": "new_monthly_cat_2",
+    "spend": 0,
+    "savings": 0,
+    "maxCap": 1500,
+    "explanation": [
+      "<div>On spends of Γé╣0 on <b>eligible brands</b> you get 5% Cashback, which is <b>Γé╣0</b>.</div>"
+    ],
+    "cashback_percentage": "5",
+    "totalMaxCap": 3500
+  },
+  "new_monthly_cat_3": {
+    "on": "new_monthly_cat_3",
+    "spend": 0,
+    "savings": 0,
+    "maxCap": 0,
+    "explanation": [
+      "<div>On spends of Γé╣0 on <b>eligible brands</b> you get 0% Cashback, which is <b>Γé╣0</b>.</div>"
+    ],
+    "cashback_percentage": "0",
+    "totalMaxCap": 0
+  },
+  "hotels_annual": {
+    "on": "hotels_annual",
+    "spend": 0,
+    "savings": 0,
+    "maxCap": 500,
+    "explanation": [
+      "<div>On spends of Γé╣0 on <b>eligible brands</b> you get 1% Cashback, which is <b>Γé╣0</b>.</div>"
+    ],
+    "cashback_percentage": "1",
+    "totalMaxCap": 3500
+  },
+  "flights_annual": {
+    "on": "flights_annual",
+    "spend": 0,
+    "savings": 0,
+    "maxCap": 500,
+    "explanation": [
+      "<div>On spends of Γé╣0 on <b>eligible brands</b> you get 1% Cashback, which is <b>Γé╣0</b>.</div>"
+    ],
+    "cashback_percentage": "1",
+    "totalMaxCap": 3500
+  },
+  "insurance_health_annual": {
+    "on": "insurance_health_annual",
+    "spend": 0,
+    "savings": 0,
+    "maxCap": 0,
+    "explanation": [
+      "<div>On spends of Γé╣0 on <b>eligible brands</b> you get 0% Cashback, which is <b>Γé╣0</b>.</div>"
+    ],
+    "cashback_percentage": "0",
+    "totalMaxCap": 0
+  },
+  "insurance_car_or_bike_annual": {
+    "on": "insurance_car_or_bike_annual",
+    "spend": 0,
+    "savings": 0,
+    "maxCap": 0,
+    "explanation": [
+      "<div>On spends of Γé╣0 on <b>eligible brands</b> you get 0% Cashback, which is <b>Γé╣0</b>.</div>"
+    ],
+    "cashback_percentage": "0",
+    "totalMaxCap": 0
+  },
+  "large_electronics_purchase_like_mobile_tv_etc": {
+    "on": "large_electronics_purchase_like_mobile_tv_etc",
+    "spend": 0,
+    "savings": 0,
+    "maxCap": 1500,
+    "explanation": [
+      "<div>On spends of Γé╣0 on <b>eligible brands</b> you get 5% Cashback, which is <b>Γé╣0</b>.</div>"
+    ],
+    "cashback_percentage": "5",
+    "totalMaxCap": 3500
+  },
+  "all_pharmacy": {
+    "on": "all_pharmacy",
+    "spend": 0,
+    "savings": 0,
+    "maxCap": 1500,
+    "explanation": [
+      "<div>On spends of Γé╣0 on <b>eligible brands</b> you get 5% Cashback, which is <b>Γé╣0</b>.</div>"
+    ],
+    "cashback_percentage": "5",
+    "totalMaxCap": 3500
+  },
+  "new_cat_1": {
+    "on": "new_cat_1",
+    "spend": 0,
+    "savings": 0,
+    "maxCap": 0,
+    "explanation": [
+      "<div>On spends of Γé╣0 on <b>eligible brands</b> you get 0% Cashback, which is <b>Γé╣0</b>.</div>"
+    ],
+    "cashback_percentage": "0",
+    "totalMaxCap": 0
+  },
+  "new_cat_2": {
+    "on": "new_cat_2",
+    "spend": 0,
+    "savings": 0,
+    "maxCap": 0,
+    "explanation": [
+      "<div>On spends of Γé╣0 on <b>eligible brands</b> you get 0% Cashback, which is <b>Γé╣0</b>.</div>"
+    ],
+    "cashback_percentage": "0",
+    "totalMaxCap": 0
+  },
+  "new_cat_3": {
+    "on": "new_cat_3",
+    "spend": 0,
+    "savings": 0,
+    "maxCap": 0,
+    "explanation": [
+      "<div>On spends of Γé╣0 on <b>eligible brands</b> you get 0% Cashback, which is <b>Γé╣0</b>.</div>"
+    ],
+    "cashback_percentage": "0",
+    "totalMaxCap": 0
+  }
+}

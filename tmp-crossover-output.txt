@@ -1,0 +1,71 @@
+﻿Session: e417e6c3
+
+=== FUEL: 3000/mo ===
+  #1 Kotak IndianOil Platinum Credit Card       net=1440  rewards=1440  fee=0
+  #2 IDFC POWER PLUS                            net=622  rewards=1800  fee=1178
+  #3 AXIS INDIAN OIL RUPAY                      net=620  rewards=1800  fee=1180
+  #4 ICICI HPCL SUPER SAVER                     net=620  rewards=1800  fee=1180
+  #5 IndianOil RBL Bank Credit Card             net=620  rewards=1800  fee=1180
+
+=== FUEL: 4000/mo ===
+  #1 Kotak IndianOil Platinum Credit Card       net=1920  rewards=1920  fee=0
+  #2 IDFC POWER PLUS                            net=1222  rewards=2400  fee=1178
+  #3 AXIS INDIAN OIL RUPAY                      net=1220  rewards=2400  fee=1180
+  #4 ICICI HPCL SUPER SAVER                     net=1220  rewards=2400  fee=1180
+  #5 IndianOil RBL Bank Credit Card             net=1220  rewards=2400  fee=1180
+
+=== FUEL: 5000/mo ===
+  #1 Kotak IndianOil Platinum Credit Card       net=2400  rewards=2400  fee=0
+  #2 IDFC POWER PLUS                            net=1822  rewards=3000  fee=1178
+  #3 AXIS INDIAN OIL RUPAY                      net=1820  rewards=3000  fee=1180
+  #4 IndianOil RBL Bank Credit Card             net=1820  rewards=3000  fee=1180
+  #5 ICICI HPCL SUPER SAVER                     net=1220  rewards=2400  fee=1180
+
+=== FUEL: 6000/mo ===
+  #1 Kotak IndianOil Platinum Credit Card       net=2880  rewards=2880  fee=0
+  #2 IDFC POWER PLUS                            net=2422  rewards=3600  fee=1178
+  #3 IndianOil RBL Bank Credit Card             net=2420  rewards=3600  fee=1180
+  #4 Indian Oil RBL Bank XTRA Credit Card       net=1860  rewards=5400  fee=3540
+  #5 AXIS INDIAN OIL RUPAY                      net=1820  rewards=3000  fee=1180
+
+=== FUEL: 7000/mo ===
+  #1 Kotak IndianOil Platinum Credit Card       net=3360  rewards=3360  fee=0
+  #2 IDFC POWER PLUS                            net=3022  rewards=4200  fee=1178
+  #3 IndianOil RBL Bank Credit Card             net=3020  rewards=4200  fee=1180
+  #4 Indian Oil RBL Bank XTRA Credit Card       net=2760  rewards=6300  fee=3540
+  #5 AXIS INDIAN OIL RUPAY                      net=1820  rewards=3000  fee=1180
+
+=== FUEL: 8000/mo ===
+  #1 Indian Oil RBL Bank XTRA Credit Card       net=3660  rewards=7200  fee=3540
+  #2 IDFC POWER PLUS                            net=3622  rewards=4800  fee=1178
+  #3 IndianOil RBL Bank Credit Card             net=3620  rewards=4800  fee=1180
+  #4 Kotak IndianOil Platinum Credit Card       net=3600  rewards=3600  fee=0
+  #5 AXIS INDIAN OIL RUPAY                      net=1820  rewards=3000  fee=1180
+
+=== FUEL: 9000/mo ===
+  #1 Indian Oil RBL Bank XTRA Credit Card       net=4560  rewards=8100  fee=3540
+  #2 IDFC POWER PLUS                            net=4222  rewards=5400  fee=1178
+  #3 IndianOil RBL Bank Credit Card             net=4220  rewards=5400  fee=1180
+  #4 Kotak IndianOil Platinum Credit Card       net=3600  rewards=3600  fee=0
+  #5 AXIS INDIAN OIL RUPAY                      net=1820  rewards=3000  fee=1180
+
+=== FUEL: 10000/mo ===
+  #1 Indian Oil RBL Bank XTRA Credit Card       net=5460  rewards=9000  fee=3540
+  #2 IDFC POWER PLUS                            net=4822  rewards=6000  fee=1178
+  #3 IndianOil RBL Bank Credit Card             net=4820  rewards=6000  fee=1180
+  #4 Kotak IndianOil Platinum Credit Card       net=3600  rewards=3600  fee=0
+  #5 AXIS INDIAN OIL RUPAY                      net=1820  rewards=3000  fee=1180
+
+=== FUEL: 12000/mo ===
+  #1 Indian Oil RBL Bank XTRA Credit Card       net=7260  rewards=10800  fee=3540
+  #2 IDFC POWER PLUS                            net=6022  rewards=7200  fee=1178
+  #3 IndianOil RBL Bank Credit Card             net=4820  rewards=6000  fee=1180
+  #4 Kotak IndianOil Platinum Credit Card       net=3600  rewards=3600  fee=0
+  #5 AXIS INDIAN OIL RUPAY                      net=1820  rewards=3000  fee=1180
+
+=== FUEL: 15000/mo ===
+  #1 Indian Oil RBL Bank XTRA Credit Card       net=8460  rewards=12000  fee=3540
+  #2 IDFC POWER PLUS                            net=6022  rewards=7200  fee=1178
+  #3 IndianOil RBL Bank Credit Card             net=4820  rewards=6000  fee=1180
+  #4 Kotak IndianOil Platinum Credit Card       net=3600  rewards=3600  fee=0
+  #5 Amex Express Platinum Card                 net=2250  rewards=2250  fee=0

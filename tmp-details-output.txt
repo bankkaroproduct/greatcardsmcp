@@ -1,0 +1,107 @@
+﻿
+============================================================
+CARD: undefined
+BANK: undefined
+FEES: joining=undefined  annual=undefined
+WAIVER: none
+
+KEY BENEFITS:
+
+DETAILED BENEFITS:
+
+TAGS: 
+
+============================================================
+CARD: Indian Oil RBL Bank XTRA Credit Card
+BANK: 
+FEES: joining=Γé╣1,770 (Γé╣1,500 + GST)  annual=Γé╣1,770 (Γé╣1,500 + GST)
+WAIVER: The annual fee is waived if you spend Γé╣2.75 lakh or more in a year on your card, as per bank policy.
+
+KEY BENEFITS:
+  - 3,000 Fuel Points as Welcome Benefit: on spending Γé╣500 or more within 30 days of card issuance
+  - 15 Fuel Points per Γé╣100 on IndianOil Fuel Spends: on every Γé╣100 spent at IndianOil fuel stations, capped at 2,000 fuel points per month
+  - 2 Fuel Points per Γé╣100 on Other Spends: on all non-fuel purchases such as shopping and everyday spends
+  - Earn 2 Fuel Points : per Γé╣100 on dining spends
+  - Up to 7.5% Valueback on Fuel Purchases: through accelerated fuel points earnings and fuel surcharge waiver benefits
+  - Quarterly Fuel Bonus of 1000 Additional Fuel Points : on Spend Milestone	 on crossing quarterly spends of Γé╣75,000
+  - Quarterly Fuel Bonus of 1000 Additional Fuel Points: on Spend Milestone on crossing quarterly spends of Γé╣75,000
+  - Up to 7.5% Valueback on Fuel Purchases:  through accelerated fuel points earnings and fuel surcharge waiver benefits
+
+DETAILED BENEFITS:
+  [all/All Benefits] Earn 15 Fuel Points for every Γé╣100 spent at IndianOil fuel stations, capped at Γé╣2,000 Fuel Points per month Earn 2 Fuel Points per Γé╣100 spent on all other card purchases Redeem Fuel Points at IndianOi
+  [welcome/Welcome Benefits] Get 3,000 Fuel Points on making your first card transaction of Γé╣500 or more within 30 days of card issuance
+  [travel/	Flight Benefits] This card does not offer any benefits in this category
+  [travel/Railway Benefits] This card does not offer any benefits in this category
+  [travel/	Bus Benefits] This card does not offer any benefits in this category
+  [lounge/	Airport Lounge Benefits] This card does not offer any benefits in this category
+  [lounge/	Railway Lounge Benefits] This card does not offer any benefits in this category
+  [movie_ticket/	Movie Benefits] This card does not offer any benefits in this category
+  [dining/	Dining Benefits] Earn 2 fuel points per Γé╣100 spent on dining
+  [fuel/Fuel Benefits] Earn 15 Fuel Points for every Γé╣100 spent at IndianOil fuel stations, capped at Γé╣2,000 Fuel Points per month Earn 2 Fuel Points for every Γé╣100 spent on all other card purchases Fuel Point Value: 1 Fuel
+  [fuel/Fuel Surcharge Waiver Benefits] Enjoy a 1% fuel surcharge waiver on fuel transactions, capped at Γé╣200 per month
+  [insurance/Insurance Benefits] This card does not offer any benefits in this category
+  [bank_offers/Bank Offer] Get Annual Fee waived on spending Γé╣2.75 Lakh or more in a year, making the card effectively free for high spenders
+
+TAGS: Fuel, Shopping
+
+============================================================
+CARD: IDFC First Power Plus Credit Card
+BANK: 
+FEES: joining=Γé╣589 (Γé╣499 + GST)  annual=Γé╣589 (Γé╣499 + GST)
+WAIVER: The annual fee is waived if you spend Γé╣1.5 lakh or more in a year on your card, as per bank policy.
+
+KEY BENEFITS:
+  - Earn 5% Rewards on HPCL Fuel: through 30X Reward Points on fuel spends at authorised HPCL fuel stations 
+  - 5% rewards on FASTag recharges: when you recharge your IDFC FIRST FASTag through the IDFC FIRST Bank Mobile App or FIRST Forward App
+  - Up to 30X Reward Points on HPCL Fuel: on spends up to Γé╣12,000 per statement cycle, helping you earn up to 2,400 reward points every month on fuel purchases
+  - 30X Reward Points on Groceries: when you spend on eligible grocery merchants, up to Γé╣2,000 per statement cycle
+  - Extra 1.5% savings via HP Pay App: when you pay for HPCL fuel using HP Pay App through wallet upload or Pay-by-QR
+  - 30X Reward Points on Utility Bills: on eligible electricity, water, gas and other utility payments based on merchant category codes
+  - 5% EMI Cashback up to Γé╣1,000: on your first EMI transaction of Γé╣2,500 or more with a tenure of 6 months or above within 30 days of card setup
+
+DETAILED BENEFITS:
+  [all/All Benefits] 5% savings as Reward Points on grocery and utility spends Grocery and utility reward structure: 30 Reward Points per Γé╣150 (1 Reward Point = Γé╣0.25) Grocery and utility spends capped at Γé╣2,000 per state
+  [welcome/Welcome Benefits] Γé╣500 welcome gift voucher on first HPCL fuel transaction of Γé╣500 or above at authorised HPCL fuel stations for cards set up on/after 10 Jun 2025 Voucher transaction must be completed within 60 days of
+  [travel/Flight Benefits] Low Forex Markup Fee just 1.99% on international transactions, including those conducted in Indian rupees abroad Up to 8.83% savings on hotel and flight bookings through the IDFC FIRST Mobile App
+  [lounge/Airport Lounge Benefits] 1 complimentary domestic airport lounge visit per quarter Applicable on minimum monthly spends of Γé╣20,000
+  [lounge/Railway Lounge Benefits] This card does not offer any benefits in this category
+  [movie_ticket/Movie Benefits] 25% off on movie tickets up to Γé╣100, once every month
+  [dining/Dining Benefits] This card does not offer any benefits in this category
+  [fuel/Fuel Benefits] Up to 6.5% savings on HPCL fuel spends using FIRST Power+ Credit Card 5% savings as Reward Points on HPCL fuel spends at authorised HPCL fuel stations Additional 1.5% savings as Happy Coins on fuel pa
+  [fuel/Surcharge Waiver Benefits] This card does not offer any benefits in this category
+  [insurance/Insurance Benefits] Personal Accident Cover of Γé╣2,00,000 Lost Card Liability Cover of Γé╣25,000
+  [bank_offers/Bank Offers] ΓÇó Exciting merchant offers worth Γé╣1,000+ available via the IDFC FIRST rewards redemption platform
+
+TAGS: Fuel, Grocery Shopping, Travel, Utility Bills
+
+============================================================
+CARD: SBI BPCL Credit Card
+BANK: 
+FEES: joining=Γé╣589 (Γé╣499 + GST)  annual=Γé╣589 (Γé╣499 + GST)
+WAIVER: The annual fee is waived if you spend Γé╣50 thousand or more in a year on your card, as per bank policy.
+
+KEY BENEFITS:
+  - Get 2,000 Activation Bonus Reward Points worth Γé╣500: credited within 20 days of joining fee payment, redeemable instantly at BPCL petrol pumps or via the Shop & Smile Rewards Catalogue
+  - Earn 13X Reward Points: on fuel purchases at BPCL petrol pumps, with a maximum of 1,300 Reward Points per billing cycle
+  - Earn 13X Reward Points	 : on fuel purchases at BPCL petrol pumps, with a maximum of 1,300 Reward Points per billing cycle
+  - Get 2,000 Activation Bonus Reward Points worth Γé╣500	 : credited within 20 days of joining fee payment, redeemable instantly at BPCL petrol pumps or via the Shop & Smile Rewards Catalogue
+  - 4.25% valueback  on BPCL fuel purchases: BPCL fuel purchases max 1,300 pts per billing cycle
+  - 3.25% + 1% Fuel surcharge waiver : on every BPCL transaction upto Γé╣ 4000 (exclusive of GST and other charges)
+
+DETAILED BENEFITS:
+  [all/All Benefits] &nbsp;2,000 Activation Bonus Reward Points worth Γé╣500 credited within 20 days of payment of the joining fee; redeemable at select BPCL petrol pumps or via Shop &amp; Smile Rewards Catalogue Earn 4.25%
+  [welcome/Welcome Benefits] Get 2,000 Activation Bonus Reward Points worth Γé╣500 on payment of joining fee Reward Points credited 20 days after joining fee payment
+  [travel/Flight Benefits] This card does not offer any benefits in this category
+  [travel/	Railway Benefits] This card does not offer any benefits in this category
+  [travel/Cab Benefits] This card does not offer any benefits in this category
+  [travel/	Bus Benefits] This card does not offer any benefits in this category
+  [lounge/	Airport Lounge Benefits] This card does not offer any benefits in this category
+  [lounge/	Railway Lounge Benefits] This card does not offer any benefits in this category
+  [movie_ticket/Movie Benefits] This card does not offer any benefits in this category
+  [dining/	Dining Benefits] This card does not offer any benefits in this category
+  [fuel/Fuel Benefits] &nbsp;4.25% value back (13X Reward Points) on fuel purchases at BPCL petrol pumps (max 1,300 Reward Points per billing cycle) 3.25% value back on BPCL transactions up to Γé╣4,000 (exclusive of GST &amp;
+  [fuel/	Surcharge Waiver Benefits] 3.25% value back + 1% fuel surcharge waiver on BPCL fuel transactions up to Γé╣4,000 per transaction (exclusive of GST &amp; other charges), with a maximum surcharge waiver of Γé╣100 per billing cycle
+  [insurance/Insurance Benefits] This card does not offer any benefits in this category
+  [bank_offers/Bank Offer] This card does not offer any benefits in this category
+
+TAGS: Fuel
