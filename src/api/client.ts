@@ -96,7 +96,16 @@ export const apiClient = {
       school_fees: 0,
       ...spendingData,
     };
-    const raw = await apiPost<any>('/cardgenius/v2/calculate', fullPayload);
+    // v2 does not accept offline_grocery or life_insurance — merge them into base keys
+    const { offline_grocery, life_insurance, ...v2Payload } = fullPayload;
+    if (offline_grocery) {
+      v2Payload.other_offline_spends = (v2Payload.other_offline_spends || 0) + offline_grocery;
+    }
+    if (life_insurance) {
+      v2Payload.insurance_health_annual = (v2Payload.insurance_health_annual || 0) + life_insurance;
+    }
+
+    const raw = await apiPost<any>('/cardgenius/v2/calculate', v2Payload);
 
     // Normalise response envelope so all callers can always use raw.data.savings
     // v1 shape: { data: { savings: [...] } }
