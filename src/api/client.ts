@@ -96,22 +96,22 @@ export const apiClient = {
       school_fees: 0,
       ...spendingData,
     };
-    try {
-      return await apiPost<any>('/cardgenius/calculate', fullPayload);
-    } catch (err: any) {
-      // UAT rejects offline_grocery & life_insurance — fall back to merging them
-      if (err.message?.includes('not allowed')) {
-        const { offline_grocery, life_insurance, ...coreSpending } = fullPayload;
-        if (offline_grocery) {
-          coreSpending.other_offline_spends = (coreSpending.other_offline_spends || 0) + offline_grocery;
-        }
-        if (life_insurance) {
-          coreSpending.insurance_health_annual = (coreSpending.insurance_health_annual || 0) + life_insurance;
-        }
-        return await apiPost<any>('/cardgenius/calculate', coreSpending);
+    const raw = await apiPost<any>('/cardgenius/v2/calculate', fullPayload);
+
+    // Normalise response envelope so all callers can always use raw.data.savings
+    // v1 shape: { data: { savings: [...] } }
+    // v2 shape may be: { data: [...] }  or  { data: { savings: [...] } }  or  { savings: [...] }
+    if (raw) {
+      if (Array.isArray(raw.data)) {
+        raw.data = { savings: raw.data };
+      } else if (Array.isArray(raw.savings)) {
+        raw.data = { savings: raw.savings };
+      } else if (raw.data && !Array.isArray(raw.data.savings)) {
+        raw.data.savings = [];
       }
-      throw err;
     }
+
+    return raw;
   },
 
   getCardListing(params: CardListingParams) {
