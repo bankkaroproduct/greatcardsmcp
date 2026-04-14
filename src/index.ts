@@ -17,7 +17,6 @@ import { compareCardsSchema, compareCards } from './tools/compare.js';
 import { checkEligibilitySchema, checkEligibility } from './tools/eligibility.js';
 import { advisorContextSchema, getAdvisorContext } from './tools/advisorContext.js';
 import { contentBriefSchema, generateContentBrief } from './tools/contentBrief.js';
-import { cache } from './cache/cache.js';
 import { CARD_ADVISOR_PROMPT } from './prompts/cardAdvisor.js';
 
 // Load .env if present
@@ -302,19 +301,6 @@ FOR CHATBOT DEVELOPERS: Call this at session init and inject the "context" field
     })
   );
 
-  // ── Resource: cache stats ──────────────────────────────────────────────
-  server.resource(
-    'cache-stats',
-    'greatcards://cache/stats',
-    async () => ({
-      contents: [{
-        uri: 'greatcards://cache/stats',
-        mimeType: 'application/json',
-        text: JSON.stringify(cache.stats(), null, 2),
-      }],
-    })
-  );
-
   return server;
 }
 
@@ -390,7 +376,6 @@ async function main() {
           version: '1.3.0',
           auth_enabled: clientAuth.isEnabled,
           active_sessions: Object.keys(transports).length,
-          cache: cache.stats(),
           api_base: process.env.PARTNER_BASE_URL || 'https://platform.bankkaro.com/partner',
         });
         return;

@@ -1,5 +1,4 @@
 import { authManager } from './auth.js';
-import { cache } from '../cache/cache.js';
 
 const BASE_URL = (process.env.PARTNER_BASE_URL || 'https://platform.bankkaro.com/partner').replace(/\/$/, '');
 
@@ -43,30 +42,15 @@ export interface CardListingParams {
   cardGeniusPayload?: unknown[];
 }
 
-async function apiGet<T>(path: string, cacheKey?: string): Promise<T> {
-  if (cacheKey) {
-    const cached = cache.get<T>(cacheKey);
-    if (cached) return cached;
-  }
-
+async function apiGet<T>(path: string): Promise<T> {
   const response = await authManager.authenticatedFetch(`${BASE_URL}${path}`);
   if (!response.ok) {
     throw new Error(`API error ${response.status}: ${await response.text()}`);
   }
-  const data = await response.json();
-
-  if (cacheKey) {
-    cache.set(cacheKey, data);
-  }
-  return data;
+  return response.json();
 }
 
-async function apiPost<T>(path: string, body: unknown, cacheKey?: string): Promise<T> {
-  if (cacheKey) {
-    const cached = cache.get<T>(cacheKey);
-    if (cached) return cached;
-  }
-
+async function apiPost<T>(path: string, body: unknown): Promise<T> {
   const response = await authManager.authenticatedFetch(`${BASE_URL}${path}`, {
     method: 'POST',
     body: JSON.stringify(body),
@@ -74,21 +58,16 @@ async function apiPost<T>(path: string, body: unknown, cacheKey?: string): Promi
   if (!response.ok) {
     throw new Error(`API error ${response.status}: ${await response.text()}`);
   }
-  const data = await response.json();
-
-  if (cacheKey) {
-    cache.set(cacheKey, data);
-  }
-  return data;
+  return response.json();
 }
 
 export const apiClient = {
   getInitBundle() {
-    return apiGet<any>('/cardgenius/init-bundle', 'init-bundle');
+    return apiGet<any>('/cardgenius/init-bundle');
   },
 
   getCardDetails(alias: string) {
-    return apiGet<any>(`/cardgenius/cards/${alias}`, `card:${alias}`);
+    return apiGet<any>(`/cardgenius/cards/${alias}`);
   },
 
   async calculateCardGenius(spendingData: SpendingData) {
@@ -117,10 +96,8 @@ export const apiClient = {
       school_fees: 0,
       ...spendingData,
     };
-    const key = `calc:${JSON.stringify(fullPayload)}`;
-
     try {
-      return await apiPost<any>('/cardgenius/calculate', fullPayload, key);
+      return await apiPost<any>('/cardgenius/calculate', fullPayload);
     } catch (err: any) {
       // UAT rejects offline_grocery & life_insurance — fall back to merging them
       if (err.message?.includes('not allowed')) {
@@ -131,8 +108,7 @@ export const apiClient = {
         if (life_insurance) {
           coreSpending.insurance_health_annual = (coreSpending.insurance_health_annual || 0) + life_insurance;
         }
-        const fallbackKey = `calc-fb:${JSON.stringify(coreSpending)}`;
-        return await apiPost<any>('/cardgenius/calculate', coreSpending, fallbackKey);
+        return await apiPost<any>('/cardgenius/calculate', coreSpending);
       }
       throw err;
     }
@@ -150,8 +126,7 @@ export const apiClient = {
       eligiblityPayload: params.eligiblityPayload || {},
       cardGeniusPayload: params.cardGeniusPayload || [],
     };
-    const key = `listing:${JSON.stringify(fullParams)}`;
-    return apiPost<any>('/cardgenius/cards', fullParams, key);
+    return apiPost<any>('/cardgenius/cards', fullParams);
   },
 
   // Eligibility is user-specific — short cache (5 min)
@@ -175,7 +150,6 @@ export const apiClient = {
       },
       cardGeniusPayload: [],
     };
-    const key = `elig:${params.pincode}:${params.inhandIncome}:${params.empStatus}`;
-    return apiPost<any>('/cardgenius/cards', body, key);
+    return apiPost<any>('/cardgenius/cards', body);
   },
 };
