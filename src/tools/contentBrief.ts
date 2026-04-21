@@ -68,6 +68,34 @@ export const contentBriefSchema = z.object({
   // ── common ───────────────────────────────────────────────────────────────
   top_n: z.number().optional().default(5),
   include_details: z.boolean().optional().default(true),
+
+  // ── output format & content parameters (absorbed from content layer) ─────
+  output_format: z.enum(['blog', 'carousel', 'reels', 'thread', 'linkedin']).optional()
+    .describe('Output format. blog=long-form article, carousel=Instagram slide JSON, reels=voiceover script, thread=X/Twitter thread, linkedin=LinkedIn post. Default: blog.'),
+
+  audience: z.enum(['first-timer', 'rewards-seeker', 'traveler', 'young-pro', 'high-spender', 'budget']).optional()
+    .describe('Target audience. first-timer=explain jargon, rewards-seeker=maximize tips, traveler=lounge/miles focus, young-pro=aspirational+practical, high-spender=premium deep-dive, budget=value/LTF focus.'),
+
+  goal: z.enum(['awareness', 'consideration', 'conversion']).optional()
+    .describe('Content goal. awareness=introduce the card, consideration=evaluate pros/cons honestly, conversion=push to apply now with urgency.'),
+
+  hook: z.enum(['benefits-led', 'savings-math', 'mistakes', 'hidden-gems', 'worth-fee', 'upgrade-story']).optional()
+    .describe('Narrative hook. savings-math=lead with ₹ savings calc, worth-fee=ROI framing, hidden-gems=underrated benefits, mistakes=what people get wrong, upgrade-story=journey from free to paid card.'),
+
+  spend_focus: z.enum(['online-shopper', 'flyer', 'foodie', 'fuel-heavy', 'bills', 'all-round']).optional()
+    .describe('Spend category to spotlight in examples and ₹ calculations.'),
+
+  tone: z.enum(['conversational', 'punchy', 'educational', 'story-driven', 'expert']).optional()
+    .describe('Writing tone. conversational=warm friendly, punchy=short sharp bold, educational=structured clear, story-driven=narrative arc, expert=data-first technical.'),
+
+  language: z.enum(['english', 'hinglish']).optional()
+    .describe('Output language. hinglish=mix English with natural Hindi (yaar, matlab, seedha, ek dum) for Indian millennials.'),
+
+  comparison_card: z.string().optional()
+    .describe('Optional card alias to weave in as a comparison. Fetch its details and contrast inline.'),
+
+  seo_keyword: z.string().optional()
+    .describe('Target SEO keyword for blog format. Use naturally in H1, intro paragraph, and 2-3 subheadings.'),
 });
 
 // ─── Main handler ────────────────────────────────────────────────────────────
@@ -196,7 +224,7 @@ async function handleCategoryBestCards(input: z.infer<typeof contentBriefSchema>
     compositions_swept: compositionsToSweep.map(c => ({ label: c.label, description: c.description })),
     sweeps_by_composition,
     card_profiles,
-    _llm_instructions: buildArticleInstructions('category_best_cards', category),
+    _llm_instructions: buildArticleInstructions('category_best_cards', category, input),
   };
 }
 
@@ -257,7 +285,7 @@ async function handleCardComparison(input: z.infer<typeof contentBriefSchema>) {
     spend_profile_used: spend_profile || null,
     savings_at_spend,
     card_profiles,
-    _llm_instructions: buildArticleInstructions('card_comparison'),
+    _llm_instructions: buildArticleInstructions('card_comparison', undefined, input),
   };
 }
 
@@ -309,7 +337,7 @@ async function handlePersonaGuide(input: z.infer<typeof contentBriefSchema>) {
     },
     top_cards: ranked,
     card_profiles,
-    _llm_instructions: buildArticleInstructions('persona_guide', persona.name),
+    _llm_instructions: buildArticleInstructions('persona_guide', persona.name, input),
   };
 }
 
@@ -395,7 +423,7 @@ async function handleUpgradePath(input: z.infer<typeof contentBriefSchema>) {
       : 'Paid card does not pay off at any tested spend level — may need higher tiers',
     tier_results,
     card_profiles,
-    _llm_instructions: buildArticleInstructions('upgrade_path'),
+    _llm_instructions: buildArticleInstructions('upgrade_path', undefined, input),
   };
 }
 
@@ -470,7 +498,7 @@ async function handleFeeJustification(input: z.infer<typeof contentBriefSchema>)
     break_even_spend: breakEvenTier?.spend_level || null,
     break_even_label: breakEvenTier?.spend_label || 'Does not break even at tested tiers',
     tier_results,
-    _llm_instructions: buildArticleInstructions('fee_justification', cardName),
+    _llm_instructions: buildArticleInstructions('fee_justification', cardName, input),
   };
 }
 
@@ -552,7 +580,7 @@ async function handleBankRanking(input: z.infer<typeof contentBriefSchema>) {
     total_cards_from_bank: bankCards.length,
     ranked_cards: rankedCards,
     card_profiles,
-    _llm_instructions: buildArticleInstructions('bank_ranking', bank_name),
+    _llm_instructions: buildArticleInstructions('bank_ranking', bank_name, input),
   };
 }
 
@@ -615,98 +643,244 @@ function extractCategorySpecifics(benefits: any[], detailFields: string[]): Reco
 
 // ─── LLM instructions per content type ───────────────────────────────────────
 
-function buildArticleInstructions(contentType: string, subject?: string): any {
+function buildArticleInstructions(contentType: string, subject?: string, opts?: {
+  output_format?: string;
+  audience?: string;
+  goal?: string;
+  hook?: string;
+  spend_focus?: string;
+  tone?: string;
+  language?: string;
+  comparison_card?: string;
+  seo_keyword?: string;
+}): any {
+  const o = opts || {};
+  const fmt = o.output_format || 'blog';
+
+  const AUDIENCE_DESC: Record<string, string> = {
+    'first-timer':    'Someone looking for their first credit card. Use simple language, explain jargon, avoid assuming knowledge.',
+    'rewards-seeker': 'Experienced user who maximises rewards and cashback. Be specific about earn rates, redemption values, and optimisation tips.',
+    'traveler':       'Frequent traveller who prioritises lounge access, air miles, and travel perks. Focus on travel benefits and international usability.',
+    'young-pro':      'Young professional (25-32) building their lifestyle and credit profile. Balance aspirational tone with practical value.',
+    'high-spender':   'High-income individual spending ₹1L+/month who wants maximum value. Go deep on premium benefits, milestone rewards, and net annual savings.',
+    'budget':         'Budget-conscious person who wants good value with low or no annual fee. Lead with cost-effectiveness and fee waivers.',
+  };
+  const GOAL_DESC: Record<string, string> = {
+    'awareness':     'Make them aware this card exists and what it generally offers. Informational, no hard sell. Mention 2-3 top features.',
+    'consideration': 'Help them evaluate if this card is right for their situation. Compare pros/cons, be honest about who it suits and who it does not.',
+    'conversion':    'Push them to apply now. Lead with the strongest benefit, create urgency, end with a clear CTA. Minimise downsides.',
+  };
+  const HOOK_DESC: Record<string, string> = {
+    'benefits-led':  'Lead with the card\'s strongest features and benefits.',
+    'savings-math':  'Lead with a specific ₹ annual savings calculation (e.g. "Save ₹24,000/year if you…"). Make the math crystal clear.',
+    'mistakes':      'Frame around common mistakes people make without this card, or mistakes to avoid when using it.',
+    'hidden-gems':   'Focus on lesser-known, underrated benefits most people do not know about.',
+    'worth-fee':     'Frame around the central question: is the annual fee worth it? Build the case with ROI logic.',
+    'upgrade-story': 'Tell the story of upgrading from a basic/free card to this one, and why it is worth it.',
+  };
+  const SPEND_DESC: Record<string, string> = {
+    'online-shopper': 'Spotlight: Amazon, Flipkart, Myntra rewards. Use online shopping ₹ examples.',
+    'flyer':          'Spotlight: lounge access, air miles, travel rewards, forex savings. Use travel spend examples.',
+    'foodie':         'Spotlight: Swiggy, Zomato, dining out rewards. Use food spend examples.',
+    'fuel-heavy':     'Spotlight: fuel surcharge waiver, fuel cashback. Use fuel spend examples.',
+    'bills':          'Spotlight: utility bill rewards, mobile recharge benefits. Use bills/utilities examples.',
+    'all-round':      'Use a balanced mix of spend categories. Cover everyday spending broadly.',
+  };
+  const TONE_DESC: Record<string, string> = {
+    'conversational': 'Warm, friendly, like a knowledgeable friend explaining. Use "you" a lot. Short sentences.',
+    'punchy':         'Short, sharp, bold. No filler words. Every sentence earns its place. Bold claims, numbers upfront.',
+    'educational':    'Clear, structured, thorough. Explain how things work. Good for first-timers.',
+    'story-driven':   'Use a narrative arc. Start with a relatable situation, build to the card as the solution.',
+    'expert':         'Data-first, precise, assumes knowledge. Use technical terms. Ideal for rewards maximisers.',
+  };
+
+  const audienceNote = o.audience ? AUDIENCE_DESC[o.audience] : null;
+  const goalNote = o.goal ? GOAL_DESC[o.goal] : null;
+  const hookNote = o.hook ? HOOK_DESC[o.hook] : null;
+  const spendNote = o.spend_focus ? SPEND_DESC[o.spend_focus] : null;
+  const toneNote = o.tone ? TONE_DESC[o.tone] : null;
+  const langNote = o.language === 'hinglish'
+    ? 'Write in Hinglish — mix English with natural Hindi words/phrases (yaar, matlab, seedha, ek dum, etc). Keep it relatable for Indian millennials.'
+    : null;
+
+  const writingParams = {
+    ...(audienceNote && { audience: audienceNote }),
+    ...(goalNote     && { goal: goalNote }),
+    ...(hookNote     && { narrative_hook: hookNote }),
+    ...(spendNote    && { spend_focus: spendNote }),
+    ...(toneNote     && { tone: toneNote }),
+    ...(langNote     && { language: langNote }),
+    ...(o.comparison_card && { compare_with: `Fetch details for "${o.comparison_card}" and weave in comparisons throughout.` }),
+    ...(o.seo_keyword && fmt === 'blog' && { seo_keyword: `Use "${o.seo_keyword}" naturally in H1, intro paragraph, and 2-3 subheadings.` }),
+  };
+
+  // ── Format-specific output instructions ────────────────────────────────────
+  const FORMAT_INSTRUCTIONS: Record<string, any> = {
+    blog: {
+      output: 'Write a long-form blog post (800-1200 words) in clean markdown.',
+      structure: [
+        'H1 title (include SEO keyword if provided)',
+        'Compelling intro — lead with the hook angle above',
+        'H2 sections for each key benefit with real ₹ numbers from card data',
+        'Reward Rates section with earn rates and redemption value',
+        'Fees & Charges (annual fee incl 18% GST, joining fee, waiver conditions)',
+        'Who Should Get This Card',
+        'Who Should Skip It',
+        'Verdict (1 paragraph)',
+        'CTA: Apply via Great.Cards',
+      ],
+    },
+    carousel: {
+      output: 'Return ONLY valid JSON (no markdown, no backticks, no preamble). Schema:',
+      schema: {
+        card_name: 'Full official card name',
+        cover: {
+          count: 'number of content slides as string e.g. "5"',
+          title_blue: 'short blue part of headline',
+          title_dark: 'dark part of headline',
+          subtitle: 'italic gray subtitle line',
+        },
+        slides: [
+          {
+            number: 1,
+            label: 'Short italic context label',
+            headline: 'Bold headline — wrap key stat/phrase in **double asterisks** to render blue',
+            body1: 'First bold paragraph — key fact with real ₹ number from card data',
+            body2: 'Second paragraph — context or implication',
+            callout: 'One-line callout with a specific ₹ example',
+          },
+          '...5 slides total',
+        ],
+        cta: {
+          setup_italic: 'Most people pick a card',
+          setup_bold: 'for the joining bonus. That\'s the wrong move.',
+          card_label: 'The smarter question is',
+          question: 'Which card actually fits your spending?',
+          cta_line: 'Come to Great.Cards to find out exactly that!',
+        },
+        caption: 'Full Instagram caption 150-200 words. Emojis. Ends with CTA to link in bio.',
+        hashtags: '20 hashtags space separated',
+      },
+      rules: [
+        'Use ONLY real data from this tool response. Never invent reward rates.',
+        'Annual fees include 18% GST. All amounts in ₹.',
+        'Return ONLY the JSON object — no explanation before or after.',
+      ],
+    },
+    reels: {
+      output: 'Write a 45-60 second Instagram Reels voiceover script.',
+      structure: [
+        '🎬 HOOK (0-3 sec): Scroll-stopping opening line with a specific number or bold claim — use the hook angle above',
+        '📝 SCRIPT (3-50 sec): 6-8 punchy lines. One sentence each. Use specific ₹ numbers from card data.',
+        '🎯 CTA (50-60 sec): Final call to action — visit Great.Cards',
+        '---',
+        '📱 CAPTION: 100-150 words matching tone/audience above',
+        '#️⃣ HASHTAGS: 20 hashtags',
+        '🎭 DIRECTION NOTE: 2 sentences on energy/pacing for this script',
+      ],
+    },
+    thread: {
+      output: 'Write a Twitter/X thread. 10-12 tweets. Format: "1/" "2/" etc. Max 280 chars each.',
+      structure: [
+        'Tweet 1: Hook — surprising stat or bold claim based on the hook angle above',
+        'Tweets 2-5: Top 2-3 benefits with exact ₹ numbers from card data',
+        'Tweet 6: Real-world value example (Spend ₹X/month → earn ₹Y/year)',
+        'Tweet 7: Fees + waiver conditions',
+        'Tweet 8: Who it is ideal for (matching audience above)',
+        'Tweet 9: One honest limitation — builds trust',
+        'Tweet 10: Verdict + CTA to Great.Cards',
+      ],
+    },
+    linkedin: {
+      output: 'Write a LinkedIn post for Great.Cards.',
+      structure: [
+        'Hook line — bold statement matching the hook angle above. No emoji on first line.',
+        '[blank line]',
+        'Body 200-280 words, short paragraphs matching tone/audience above. Specific ₹ numbers.',
+        '3-5 hashtags',
+      ],
+    },
+  };
+
   const common = {
     formula_note: 'net_savings = annual_rewards + milestone_benefits - annual_fee. Joining fee is excluded (one-time Year 1 cost, not recurring).',
     anti_hallucination: [
-      'NEVER invent reward rates not present in the card_profiles data.',
+      'NEVER invent reward rates not present in the card data returned by this tool.',
       'NEVER claim a card is "free" unless annual_fee shows "Free".',
-      'Do not show raw JSON — narrate the data as a structured article.',
+      'Use ONLY real ₹ numbers from the data in this tool response.',
     ],
   };
 
   const mustUseToolReminder = {
     critical: 'NEVER answer follow-up questions about card categories from training knowledge. If the user asks about another category, call generate_content_brief again for that category.',
-    format_rule: 'Do NOT show raw JSON. Write the article in clean markdown using the article_structure below. Use tables where instructed.',
+    format_rule: fmt === 'carousel'
+      ? 'Return ONLY the JSON object. No preamble, no markdown fences.'
+      : 'Write the content directly. Do NOT show raw JSON from this tool response.',
   };
 
-  const instructions: Record<string, any> = {
-    category_best_cards: {
-      ...common,
-      ...mustUseToolReminder,
-      article_structure: [
-        `1. Intro: Who should read this (${subject || 'category'} spenders) and what they'll learn.`,
-        '2. Quick comparison table: top 3-4 cards with fee, top reward rate, and net savings/yr at mid-tier spend.',
-        '3. Per-composition section: if multiple compositions, show "If you shop mostly on Amazon vs Flipkart" with the winner for each.',
-        '4. Spend-tier table: net savings at each tier for the top 2 cards. Explain WHY one card overtakes another at the crossover point.',
-        '5. Card deep-dives: for each top card — fee, fee waiver, reward caps, best use case, 1-line verdict.',
-        '6. Summary table + recommendation by persona.',
-        '7. CTA: Apply via Great.Cards.',
-      ],
-    },
-    card_comparison: {
-      ...common,
-      ...mustUseToolReminder,
-      article_structure: [
-        '1. Intro: these two cards are often compared — here\'s who each is for.',
-        '2. Side-by-side table: fee, joining fee, key benefits, reward rate, net savings (if spend_profile provided).',
-        '3. Winner per spending category from spending_breakdown.',
-        '4. Fee waiver: does one waive the fee at a reachable spend level?',
-        '5. Verdict: Card A wins if X, Card B wins if Y.',
-        '6. CTA.',
-      ],
-    },
-    persona_guide: {
-      ...common,
-      ...mustUseToolReminder,
-      article_structure: [
-        `1. Intro: Meet ${subject || 'the persona'} — describe their spend profile in plain English.`,
-        '2. Top card recommendation with WHY it fits this persona\'s spending pattern.',
-        '3. Ranked table of top 3-4 cards with net savings at persona\'s spend level.',
-        '4. For each card: which spend categories it rewards most (from spending_breakdown).',
-        '5. Fee payback for any paid cards.',
-        '6. CTA.',
-      ],
-    },
-    upgrade_path: {
-      ...common,
-      ...mustUseToolReminder,
-      article_structure: [
-        '1. Intro: You\'ve had your free card a while. Here\'s when it\'s time to upgrade.',
-        '2. Side-by-side at the crossover spend level — show the exact point where upgrade pays off.',
-        '3. Spend-tier table: free card vs paid card net savings across all tiers.',
-        '4. Fee waiver check: if the paid card waives its fee, upgrading becomes even easier.',
-        '5. Non-monetary benefits of the paid card (lounge, insurance, concierge).',
-        '6. Final verdict: "Upgrade if you spend ₹X/month or more on [category]."',
-        '7. CTA.',
-      ],
-    },
-    fee_justification: {
-      ...common,
-      ...mustUseToolReminder,
-      article_structure: [
-        `1. Intro: ${subject || 'This card'} charges ₹X/yr. Is it worth it?`,
-        '2. Break-even analysis: at what monthly spend does the card pay for itself.',
-        '3. Spend-tier table: net savings (rewards minus fee) at each level.',
-        '4. Fee payback months at mid-tier spend.',
-        '5. Fee waiver: if applicable, show the spend threshold.',
-        '6. Verdict: "Worth it for spenders above ₹X/month. Below that, look at [free alternative]."',
-        '7. CTA.',
-      ],
-    },
-    bank_ranking: {
-      ...common,
-      ...mustUseToolReminder,
-      article_structure: [
-        `1. Intro: ${subject || 'This bank'} has X cards. Here\'s how they rank.`,
-        '2. Quick overview table: all cards ranked by fee tier, with top benefit.',
-        '3. Category-by-category winner (if spend_profile used): which card wins for fuel, travel, shopping etc.',
-        '4. Deep-dive on top 3: fee, fee waiver, key benefits, net savings estimate.',
-        '5. Summary: pick card X if [profile], card Y if [profile].',
-        '6. CTA.',
-      ],
-    },
+  const baseStructures: Record<string, string[]> = {
+    category_best_cards: [
+      `1. Intro: Who should read this (${subject || 'category'} spenders) and what they'll learn.`,
+      '2. Quick comparison table: top 3-4 cards with fee, top reward rate, and net savings/yr at mid-tier spend.',
+      '3. Per-composition section: if multiple compositions, show "If you shop mostly on Amazon vs Flipkart" with the winner for each.',
+      '4. Spend-tier table: net savings at each tier for the top 2 cards. Explain WHY one card overtakes another at the crossover point.',
+      '5. Card deep-dives: for each top card — fee, fee waiver, reward caps, best use case, 1-line verdict.',
+      '6. Summary table + recommendation by persona.',
+      '7. CTA: Apply via Great.Cards.',
+    ],
+    card_comparison: [
+      '1. Intro: these two cards are often compared — here\'s who each is for.',
+      '2. Side-by-side table: fee, joining fee, key benefits, reward rate, net savings (if spend_profile provided).',
+      '3. Winner per spending category from spending_breakdown.',
+      '4. Fee waiver: does one waive the fee at a reachable spend level?',
+      '5. Verdict: Card A wins if X, Card B wins if Y.',
+      '6. CTA.',
+    ],
+    persona_guide: [
+      `1. Intro: Meet ${subject || 'the persona'} — describe their spend profile in plain English.`,
+      '2. Top card recommendation with WHY it fits this persona\'s spending pattern.',
+      '3. Ranked table of top 3-4 cards with net savings at persona\'s spend level.',
+      '4. For each card: which spend categories it rewards most (from spending_breakdown).',
+      '5. Fee payback for any paid cards.',
+      '6. CTA.',
+    ],
+    upgrade_path: [
+      '1. Intro: You\'ve had your free card a while. Here\'s when it\'s time to upgrade.',
+      '2. Side-by-side at the crossover spend level — show the exact point where upgrade pays off.',
+      '3. Spend-tier table: free card vs paid card net savings across all tiers.',
+      '4. Fee waiver check: if the paid card waives its fee, upgrading becomes even easier.',
+      '5. Non-monetary benefits of the paid card (lounge, insurance, concierge).',
+      '6. Final verdict: "Upgrade if you spend ₹X/month or more on [category]."',
+      '7. CTA.',
+    ],
+    fee_justification: [
+      `1. Intro: ${subject || 'This card'} charges ₹X/yr. Is it worth it?`,
+      '2. Break-even analysis: at what monthly spend does the card pay for itself.',
+      '3. Spend-tier table: net savings (rewards minus fee) at each level.',
+      '4. Fee payback months at mid-tier spend.',
+      '5. Fee waiver: if applicable, show the spend threshold.',
+      '6. Verdict: "Worth it for spenders above ₹X/month. Below that, look at [free alternative]."',
+      '7. CTA.',
+    ],
+    bank_ranking: [
+      `1. Intro: ${subject || 'This bank'} has X cards. Here\'s how they rank.`,
+      '2. Quick overview table: all cards ranked by fee tier, with top benefit.',
+      '3. Category-by-category winner (if spend_profile used): which card wins for fuel, travel, shopping etc.',
+      '4. Deep-dive on top 3: fee, fee waiver, key benefits, net savings estimate.',
+      '5. Summary: pick card X if [profile], card Y if [profile].',
+      '6. CTA.',
+    ],
   };
 
-  return instructions[contentType] || common;
+  const formatInstructions = FORMAT_INSTRUCTIONS[fmt] || FORMAT_INSTRUCTIONS['blog'];
+
+  return {
+    ...common,
+    ...mustUseToolReminder,
+    ...(Object.keys(writingParams).length > 0 && { writing_parameters: writingParams }),
+    output_format: fmt,
+    format_instructions: formatInstructions,
+    // For blog: use the content-type-specific structure; for other formats the format_instructions structure takes precedence
+    ...(fmt === 'blog' && baseStructures[contentType] && { article_structure: baseStructures[contentType] }),
+  };
 }
