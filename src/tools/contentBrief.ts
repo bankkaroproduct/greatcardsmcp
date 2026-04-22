@@ -142,19 +142,22 @@ async function handleCategoryBestCards(input: z.infer<typeof contentBriefSchema>
   const unique_top_aliases = new Set<string>();
   const sweeps_by_composition: any[] = [];
 
-  // For each composition, sweep all spend tiers
+  // Build all (composition × tier) jobs upfront, fire all in parallel
+  const allJobs: { composition: typeof compositionsToSweep[0]; tier: number; spendMap: Record<string, number> }[] = [];
   for (const composition of compositionsToSweep) {
-    const tier_results: any[] = [];
-
     for (const tier of spend_tiers) {
       const spendMap: Record<string, number> = {};
       for (const [key, ratio] of Object.entries(composition.keys)) {
         spendMap[key] = Math.round(tier * ratio);
       }
+      allJobs.push({ composition, tier, spendMap });
+    }
+  }
 
+  const jobResults = await Promise.all(
+    allJobs.map(async ({ composition, tier, spendMap }) => {
       const recResponse = await apiClient.calculateCardGenius(spendMap as SpendingData);
       const savingsArray = Array.isArray(recResponse?.data?.savings) ? recResponse.data.savings : [];
-
       const rankedCards = savingsArray
         .map((s: any) => {
           const annualFee = feeCalc(s.annual_fee_text || '0').withGST;
@@ -174,16 +177,24 @@ async function handleCategoryBestCards(input: z.infer<typeof contentBriefSchema>
         .filter((c: any) => c.card_alias && c.net_savings > -50000)
         .sort((a: any, b: any) => b.net_savings - a.net_savings)
         .slice(0, top_n);
+      return { composition, tier, spendMap, rankedCards };
+    })
+  );
 
-      rankedCards.forEach((c: any) => unique_top_aliases.add(c.card_alias));
-
-      tier_results.push({
-        spend_level: tier,
-        spend_label: config.tier_labels[tier] || `₹${tier.toLocaleString('en-IN')}/mo`,
-        params_used: spendMap,
-        top_cards: rankedCards,
+  // Group results back by composition (preserving tier order)
+  for (const composition of compositionsToSweep) {
+    const tier_results = jobResults
+      .filter(r => r.composition.label === composition.label)
+      .sort((a, b) => a.tier - b.tier)
+      .map(({ tier, spendMap, rankedCards }) => {
+        rankedCards.forEach((c: any) => unique_top_aliases.add(c.card_alias));
+        return {
+          spend_level: tier,
+          spend_label: config.tier_labels[tier] || `₹${tier.toLocaleString('en-IN')}/mo`,
+          params_used: spendMap,
+          top_cards: rankedCards,
+        };
       });
-    }
 
     // Find crossover points within this composition
     const crossovers: any[] = [];
