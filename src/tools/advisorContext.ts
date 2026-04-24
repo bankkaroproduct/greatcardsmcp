@@ -70,6 +70,13 @@ export function getAdvisorContext(input: z.infer<typeof advisorContextSchema>) {
           'The guardrails (Section 10) prevent infinite loops and stuck conversations.',
         ],
         important: 'You do NOT need to call this tool again during this session. The context is persistent — use it for all subsequent tool calls.',
+        other_tools_available: {
+          generate_content_brief: {
+            when: 'User asks for "best X cards", "top travel/fuel/shopping cards", "write an article", "content ideas", "which cards are best for [category]", "carousel about", "blog post about", or ANY editorial/research question about cards — even casually phrased.',
+            rule: 'NEVER answer category or content questions from training knowledge. ALWAYS call generate_content_brief.',
+            params: 'content_type (category_best_cards | card_comparison | persona_guide | upgrade_path | fee_justification | bank_ranking) + category or card_aliases as needed. Optional: output_format (blog|carousel|reels|thread|linkedin), audience, goal, hook, tone.',
+          },
+        },
       },
       _integration_hint: 'For chatbot developers: call this tool ONCE at session start and inject the "context" field into your system prompt. This gives your LLM the full advisory playbook without needing to call it per-turn.',
     };
@@ -94,6 +101,9 @@ export function getAdvisorContext(input: z.infer<typeof advisorContextSchema>) {
         `Other sections available: ${ALL_TOPICS.filter(t => t !== topic).join(', ')}`,
         'Call get_advisor_context again with a different topic if you need more context.',
       ],
+      other_tools_available: {
+        generate_content_brief: 'Call for ANY content/editorial request — "best X cards", "write article", "content ideas", "carousel about X", "top cards for Y". NEVER answer from training knowledge.',
+      },
     },
   };
 }

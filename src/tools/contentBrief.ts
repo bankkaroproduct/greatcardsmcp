@@ -7,95 +7,70 @@ import { feeCalc } from '../enrichment/feeUtils.js';
 
 export const contentBriefSchema = z.object({
   content_type: z.enum([
-    'category_best_cards',  // "Best credit cards for fuel/shopping/etc." article
-    'card_comparison',      // Side-by-side comparison of 2-4 specific cards
-    'persona_guide',        // Best cards for a named spending persona
-    'upgrade_path',         // When does upgrading from a free card to a paid card pay off?
-    'fee_justification',    // Is card X worth its annual fee at different spend levels?
-    'bank_ranking',         // Best cards from a specific bank, ranked
-  ]).describe(
-    'Content type. ' +
-    'category_best_cards: needs `category`. ' +
-    'card_comparison: needs `card_aliases` + optional `spend_profile`. ' +
-    'persona_guide: needs `persona`. ' +
-    'upgrade_path: needs `free_card_alias` + `paid_card_alias` + `category`. ' +
-    'fee_justification: needs `card_alias` + `category`. ' +
-    'bank_ranking: needs `bank_name` + optional `category`.'
-  ),
+    'category_best_cards',
+    'card_comparison',
+    'persona_guide',
+    'upgrade_path',
+    'fee_justification',
+    'bank_ranking',
+  ]).describe('category_best_cards→needs category. card_comparison→needs card_aliases. persona_guide→needs persona. upgrade_path→needs free_card_alias+paid_card_alias+category. fee_justification→needs card_alias+category. bank_ranking→needs bank_name.'),
 
-  // ── category_best_cards ──────────────────────────────────────────────────
-  category: z.enum([
-    'fuel', 'shopping', 'dining', 'travel', 'grocery', 'food-delivery', 'utility',
-  ]).optional().describe('Spending category for category_best_cards, upgrade_path, fee_justification, bank_ranking'),
+  category: z.enum(['fuel','shopping','dining','travel','grocery','food-delivery','utility']).optional()
+    .describe('Spending category. Used by category_best_cards, upgrade_path, fee_justification, bank_ranking.'),
 
-  composition_label: z.string().optional().describe(
-    'Which spend composition to use for sweeps (e.g. "Amazon-heavy"). ' +
-    'If omitted, ALL compositions are swept and compared — best for content with persona breakdowns.'
-  ),
+  composition_label: z.string().optional()
+    .describe('Spend composition to sweep e.g. "Amazon-heavy". Omit to sweep ALL compositions.'),
 
-  spend_tiers: z.array(z.number()).optional().describe(
-    'Override spend tier amounts (monthly ₹). Defaults to category preset.'
-  ),
+  spend_tiers: z.array(z.number()).optional()
+    .describe('Monthly ₹ spend tiers to sweep. Defaults to category preset.'),
 
-  // ── card_comparison ──────────────────────────────────────────────────────
-  card_aliases: z.array(z.string()).min(2, { message: 'Min 2 cards' }).max(4, { message: 'Max 4 cards' }).optional().describe(
-    'Card SEO aliases for card_comparison (2-4 cards). Get from list_cards or recommend_cards.'
-  ),
+  card_aliases: z.array(z.string()).min(2,{message:'Min 2'}).max(4,{message:'Max 4'}).optional()
+    .describe('2-4 card aliases for card_comparison. Get from list_cards.'),
 
-  spend_profile: z.record(z.string(), z.number()).optional().describe(
-    'Full spending map (category → ₹/month) for comparison context. ' +
-    'Used in card_comparison and persona_guide.'
-  ),
+  spend_profile: z.record(z.string(), z.number()).optional()
+    .describe('Spend map {category:₹/month} for card_comparison or persona_guide.'),
 
-  // ── persona_guide ────────────────────────────────────────────────────────
   persona: z.object({
-    name: z.string().describe('Persona name, e.g. "Young professional, Mumbai"'),
-    monthly_income: z.number().optional().describe('Monthly take-home in ₹'),
-    spends: z.record(z.string(), z.number()).describe('Full spend map across ALL categories'),
-    priorities: z.array(z.string()).optional().describe(
-      'What they care about: "lounge", "cashback", "no-fee", "rewards", "travel", "fuel"'
-    ),
-  }).optional(),
+    name: z.string(),
+    monthly_income: z.number().optional(),
+    spends: z.record(z.string(), z.number()),
+    priorities: z.array(z.string()).optional(),
+  }).optional().describe('Persona for persona_guide: name, spends map, optional income+priorities.'),
 
-  // ── upgrade_path / fee_justification ────────────────────────────────────
-  free_card_alias: z.string().optional().describe('Current free/entry card alias'),
-  paid_card_alias: z.string().optional().describe('Candidate paid/premium card alias to justify'),
-  card_alias: z.string().optional().describe('Card alias for fee_justification analysis'),
+  free_card_alias: z.string().optional().describe('Free/entry card alias for upgrade_path.'),
+  paid_card_alias: z.string().optional().describe('Premium card alias for upgrade_path.'),
+  card_alias: z.string().optional().describe('Card alias for fee_justification.'),
+  bank_name: z.string().optional().describe('Bank name for bank_ranking e.g. "HDFC Bank".'),
 
-  // ── bank_ranking ─────────────────────────────────────────────────────────
-  bank_name: z.string().optional().describe('Bank name for bank_ranking (e.g. "HDFC Bank", "Axis Bank")'),
-
-  // ── common ───────────────────────────────────────────────────────────────
   top_n: z.number().optional().default(5),
   include_details: z.boolean().optional().default(true),
 
-  // ── output format & content parameters (absorbed from content layer) ─────
-  output_format: z.enum(['blog', 'carousel', 'reels', 'thread', 'linkedin']).optional()
-    .describe('Output format. blog=long-form article, carousel=Instagram slide JSON, reels=voiceover script, thread=X/Twitter thread, linkedin=LinkedIn post. Default: blog.'),
+  output_format: z.enum(['blog','carousel','reels','thread','linkedin']).optional()
+    .describe('Output format. carousel=Instagram JSON, reels=voiceover script, thread=X thread, linkedin=LinkedIn post, blog=article.'),
 
-  audience: z.enum(['first-timer', 'rewards-seeker', 'traveler', 'young-pro', 'high-spender', 'budget']).optional()
-    .describe('Target audience. first-timer=explain jargon, rewards-seeker=maximize tips, traveler=lounge/miles focus, young-pro=aspirational+practical, high-spender=premium deep-dive, budget=value/LTF focus.'),
+  audience: z.enum(['first-timer','rewards-seeker','traveler','young-pro','high-spender','budget']).optional()
+    .describe('Target audience persona.'),
 
-  goal: z.enum(['awareness', 'consideration', 'conversion']).optional()
-    .describe('Content goal. awareness=introduce the card, consideration=evaluate pros/cons honestly, conversion=push to apply now with urgency.'),
+  goal: z.enum(['awareness','consideration','conversion']).optional()
+    .describe('awareness=inform, consideration=evaluate, conversion=push to apply.'),
 
-  hook: z.enum(['benefits-led', 'savings-math', 'mistakes', 'hidden-gems', 'worth-fee', 'upgrade-story']).optional()
-    .describe('Narrative hook. savings-math=lead with ₹ savings calc, worth-fee=ROI framing, hidden-gems=underrated benefits, mistakes=what people get wrong, upgrade-story=journey from free to paid card.'),
+  hook: z.enum(['benefits-led','savings-math','mistakes','hidden-gems','worth-fee','upgrade-story']).optional()
+    .describe('Narrative angle. savings-math=₹ calc lead, worth-fee=ROI, hidden-gems=underrated benefits.'),
 
-  spend_focus: z.enum(['online-shopper', 'flyer', 'foodie', 'fuel-heavy', 'bills', 'all-round']).optional()
-    .describe('Spend category to spotlight in examples and ₹ calculations.'),
+  spend_focus: z.enum(['online-shopper','flyer','foodie','fuel-heavy','bills','all-round']).optional()
+    .describe('Spend category to spotlight in examples.'),
 
-  tone: z.enum(['conversational', 'punchy', 'educational', 'story-driven', 'expert']).optional()
-    .describe('Writing tone. conversational=warm friendly, punchy=short sharp bold, educational=structured clear, story-driven=narrative arc, expert=data-first technical.'),
+  tone: z.enum(['conversational','punchy','educational','story-driven','expert']).optional()
+    .describe('Writing tone.'),
 
-  language: z.enum(['english', 'hinglish']).optional()
-    .describe('Output language. hinglish=mix English with natural Hindi (yaar, matlab, seedha, ek dum) for Indian millennials.'),
+  language: z.enum(['english','hinglish']).optional()
+    .describe('hinglish=mix English+Hindi for Indian millennials.'),
 
   comparison_card: z.string().optional()
-    .describe('Optional card alias to weave in as a comparison. Fetch its details and contrast inline.'),
+    .describe('Card alias to compare against inline.'),
 
   seo_keyword: z.string().optional()
-    .describe('Target SEO keyword for blog format. Use naturally in H1, intro paragraph, and 2-3 subheadings.'),
+    .describe('SEO keyword for blog H1 and subheadings.'),
 });
 
 // ─── Main handler ────────────────────────────────────────────────────────────
