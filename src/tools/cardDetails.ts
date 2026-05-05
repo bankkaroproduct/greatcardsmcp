@@ -22,6 +22,13 @@ const LLM_CONTEXT = {
       'If user came from recommend_cards: reinforce WHY this card was recommended for their spending.',
       'ALWAYS end with a clear CTA — never just dump card details and stop.',
     ],
+    eligibility_display: [
+      'Show eligibility as: "✅ Age: X–Y | 💰 Min income: ₹X LPA (salaried) / ₹X LPA (self-employed) | 📊 Min CIBIL: XXX".',
+      'income_salaried_lpa and income_self_emp_lpa are in Lakhs Per Annum — display as "₹X LPA".',
+      'min_income_monthly is in ₹/month — use as fallback if LPA fields are null.',
+      'If user shares their income/age/credit score, proactively check against these thresholds and tell them if they likely qualify.',
+      'notes field contains internal guidance — do not show verbatim, use only to inform your advice.',
+    ],
     anti_hallucination: [
       'NEVER invent reward rates not present in key_benefits or detailed_benefits.',
       'NEVER say "this card has X% cashback" unless the data explicitly says so.',
@@ -63,17 +70,34 @@ export async function getCardDetails(input: z.infer<typeof cardDetailsSchema>) {
     key_benefits: (card.product_usps || [])
       .sort((a: any, b: any) => (a.priority || 99) - (b.priority || 99))
       .map((usp: any) => ({
-        title: usp.header,
-        description: usp.description,
-      })),
+        title: (usp.header || '').trim(),
+        description: (usp.description || '').trim(),
+      }))
+      .filter((usp: any, idx: number, arr: any[]) =>
+        arr.findIndex((u: any) => u.title === usp.title) === idx
+      ),
     tags: (card.tags || []).map((t: any) => t.name),
     minimum_spend: card.minimum_spend,
     reward_conversion_rate: card.reward_conversion_rate,
     detailed_benefits: (card.product_benefits || []).map((b: any) => ({
-      type: b.benefit_type,
-      sub_type: b.sub_type,
-      details: b.html_text,
+      type: (b.benefit_type || '').trim(),
+      sub_type: (b.sub_type || '').trim(),
+      details: (b.html_text || '')
+        .replace(/<li>/gi, '\n• ')
+        .replace(/<[^>]+>/g, '')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim(),
     })),
+    eligibility: {
+      min_age: card.min_age ?? null,
+      max_age: card.max_age ?? null,
+      income_salaried_lpa: card.income_salaried ? parseFloat(card.income_salaried) : null,
+      income_self_emp_lpa: card.income_self_emp ? parseFloat(card.income_self_emp) : null,
+      min_income_monthly: card.income ? parseInt(card.income) : null,
+      crif_salaried: card.crif ? parseInt(card.crif) : null,
+      crif_self_emp: card.crif_self_emp ? parseInt(card.crif_self_emp) : null,
+      notes: [card.crif_comment, card.income_comment].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i)[0] || null,
+    },
     card_alias: card.seo_card_alias || input.card_alias,
     ...LLM_CONTEXT,
   };
