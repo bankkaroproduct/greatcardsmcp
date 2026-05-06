@@ -146,7 +146,6 @@ async function handleCategoryBestCards(input: z.infer<typeof contentBriefSchema>
             milestone_benefits: milestones,
             annual_fee: annualFee,
             net_savings: netSavings,
-            spending_breakdown: s.spending_breakdown,
           };
         })
         .filter((c: any) => c.card_alias && c.net_savings > -50000)

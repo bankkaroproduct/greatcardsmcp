@@ -17,7 +17,7 @@ export const advisorContextSchema = z.object({
     'guardrails',
     'tool_guide',
     'domain_knowledge',
-  ]).optional().default('full').describe(
+  ]).optional().default('tool_guide').describe(
     'Which context to load. Use "full" for the complete advisory playbook (~13K tokens — recommended on first call). ' +
     'Use specific topics for targeted context: "brand_mappings" (700+ brands), "correlated_pairs" (related categories to ask together), ' +
     '"unit_conversion" (monthly vs annual vs quarterly rules), "personas" (student, traveler, business owner templates), ' +

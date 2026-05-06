@@ -152,7 +152,11 @@ COMMON CARD ALIAS PATTERNS (aliases are NOT predictable — use list_cards if un
 • Others: scapia-credit-card, au-altura-credit-card, au-altura-plus-credit-card, au-nomo-credit-card, au-zenith-credit-card, zagg-rupay-credit-card, hsbc-travel-one, hsbc-live-plus-credit-card, standard-charted-ultimate, amex-platinum-travel-credit-card, american-express-platinum-card, amex-gold-credit-card, kotak-zen-signature-credit-card, indusind-legend-credit-card, rbl-world-safari-credit-card, yes-bank-ace-credit-card, jupiter-edge-credit-card
 ⚠️ ALIAS QUIRKS: Some aliases have mixed case (HDFC-Moneyback-Credit-Card), typos (standard-charted-ultimate), or missing suffixes (hdfc-diners-club-black has no -credit-card). ALWAYS use list_cards to verify.
 
-IMPORTANT: Aliases are inconsistent (some have -credit-card suffix, some don't, some use bank name, some don't). ALWAYS use list_cards first if you're not 100% sure of the alias.`,
+IMPORTANT: Aliases are inconsistent (some have -credit-card suffix, some don't, some use bank name, some don't). ALWAYS use list_cards first if you're not 100% sure of the alias.
+
+PRESENT: lead with card+bank+one-line positioning. Show fee block: "Joining ₹X | Annual ₹Y | Waiver: Z". Top 3-5 benefits relevant to user.
+ELIGIBILITY: show as "Age X-Y | ₹X LPA salaried / ₹Y LPA self-emp | CIBIL XXX". Check against user's stated profile proactively.
+Never invent rates not in the data. Never add GST again (fees already include 18% GST).`,
     cardDetailsSchema.shape,
     async (input) => {
       try {

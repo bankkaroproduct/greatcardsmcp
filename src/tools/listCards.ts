@@ -2,34 +2,6 @@ import { z } from 'zod';
 import { apiClient } from '../api/client.js';
 import { feeCalc } from '../enrichment/feeUtils.js';
 
-const LLM_CONTEXT = {
-  _llm_instructions: {
-    output_format: {
-      table_rule: 'When showing 3+ cards, ALWAYS use a markdown table. Columns: Card | Bank | Fee (incl. GST) | Highlight. Rank by fee tier (Free first, then ascending).',
-      fee_tier_grouping: 'Group cards by fee tier: "🆓 Lifetime Free", "💰 Budget (under ₹1K)", "⭐ Mid-range (₹1K-5K)", "👑 Premium (₹5K+)". This helps users self-select.',
-      monthly_framing: 'Show fees as monthly when above ₹1K: "₹5,900/yr (₹492/mo)" — makes premium cards feel less intimidating.',
-    },
-    how_to_present: [
-      'Present as a clean, scannable list or table — NOT raw data.',
-      'If the user asked about a category, highlight what makes these cards good for that category.',
-      'ALWAYS mention the total_available count: "There are X [category] cards available. Here are the top Y."',
-    ],
-    next_actions: [
-      'ALWAYS ask about spending to personalize: "To find the BEST card among these for YOU, I\'d need your spending details. What do you spend the most on?"',
-      'Offer details: "Want to know more about any of these? I can show you the full benefits and rewards structure."',
-      'If user picks a card: use get_card_details with the card_alias from this response.',
-      'If user wants to compare: use compare_cards with 2-3 card_alias values from this response.',
-      'ALWAYS end with a clear CTA — never just dump a list and stop.',
-    ],
-    anti_hallucination: [
-      'NEVER make up benefits or rewards not shown in the response.',
-      'NEVER claim a card is "best for X" unless you have spending data to prove it — use recommend_cards for that.',
-      'Use card_alias from this response for any follow-up tool calls — NEVER construct aliases manually.',
-      'If a card shows joining_fee as "Free", that means lifetime free (LTF) — no joining or annual fee.',
-    ],
-    context_check: 'If you haven\'t called get_advisor_context yet, do so with topic="feature_mapping" to correctly map user feature requests to filters.',
-  },
-};
 
 export const listCardsSchema = z.object({
   category: z.enum([
@@ -77,7 +49,6 @@ export async function listCards(input: z.infer<typeof listCardsSchema>) {
         annual_fee: feeCalc(card.annual_fee_text).inline,
         card_alias: card.seo_card_alias,
       })),
-      ...LLM_CONTEXT,
     };
   }
 
@@ -101,6 +72,5 @@ export async function listCards(input: z.infer<typeof listCardsSchema>) {
         image: card.card_bg_image || card.image,
       };
     }),
-    ...LLM_CONTEXT,
   };
 }
