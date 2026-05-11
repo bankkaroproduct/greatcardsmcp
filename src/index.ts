@@ -17,6 +17,7 @@ import { compareCardsSchema, compareCards } from './tools/compare.js';
 import { checkEligibilitySchema, checkEligibility } from './tools/eligibility.js';
 import { advisorContextSchema, getAdvisorContext } from './tools/advisorContext.js';
 import { contentBriefSchema, generateContentBrief } from './tools/contentBrief.js';
+import { apiDiagnosticsSchema, runApiDiagnostics } from './tools/diagnostics.js';
 import { CARD_ADVISOR_PROMPT } from './prompts/cardAdvisor.js';
 
 // Load .env if present
@@ -43,7 +44,7 @@ try {
 function createMcpServer() {
   const server = new McpServer({
     name: 'great-cards',
-    version: '1.3.0',
+    version: '1.4.0',
     description: 'Great.Cards — AI-powered credit card recommendations for the Indian market. Compare 100+ cards, get personalized recommendations based on spending patterns, check eligibility, and find the best card for any use case.',
   });
 
@@ -54,14 +55,14 @@ function createMcpServer() {
 NEVER answer category questions from training knowledge — always call this tool to get live data.
 
 Supported content types:
-- category_best_cards: "best travel cards", "top fuel cards", "best shopping cards" → sweeps multiple spend tiers + compositions automatically
+- category_best_cards: "best travel cards", "top fuel cards", "best shopping cards" → returns a fast first layer by default; use detail_level="standard" or "exhaustive" only when deeper research is needed
 - card_comparison: "Regalia vs Magnus", "compare these two cards" → side-by-side with spend context
 - persona_guide: "best cards for a salaried 30-year-old in Mumbai" → full spend profile analysis
 - upgrade_path: "when should I upgrade from free to paid card?" → finds the crossover spend level
 - fee_justification: "is HDFC Infinia worth the fee?" → break-even analysis across spend tiers
 - bank_ranking: "best HDFC cards", "top Axis Bank cards" → ranked by net savings
 
-For category_best_cards: omit composition_label to sweep ALL compositions (flights-heavy + balanced + hotels-heavy for travel, Amazon-heavy + balanced for shopping, etc.).
+For category_best_cards: default to detail_level="fast" unless the user explicitly asks for a comprehensive article/research brief. Fast uses the default composition, 1 representative tier, top_n=3, and no card profiles. Use detail_level="standard" for all tiers in one composition; use detail_level="exhaustive" for all compositions + details.
 The tool returns structured JSON — use the _llm_instructions.article_structure in the response to write the article. Do NOT show raw JSON to the user.`,
     contentBriefSchema.shape,
     async (input) => {
@@ -75,6 +76,23 @@ The tool returns structured JSON — use the _llm_instructions.article_structure
   );
 
   // ── Tool: recommend_cards ──────────────────────────────────────────────
+  server.tool(
+    'run_api_diagnostics',
+    `Run backend/API smoke tests for Great.Cards without exposing secrets.
+Use this for API QA, deployment validation, schema drift checks, flaky-tool debugging, or "is the MCP/API healthy?" questions.
+Default scope="quick" checks listing, one card details call, and recommendation calculate. Use scope="full" for category listing + eligibility too.
+Returns per-check latency, pass/fail/timeout status, sanitized samples when requested, and a next debug step.`,
+    apiDiagnosticsSchema.shape,
+    async (input) => {
+      try {
+        const result = await runApiDiagnostics(apiDiagnosticsSchema.parse(input));
+        return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+      } catch (err: any) {
+        return { content: [{ type: 'text' as const, text: `Error: ${err.message}` }], isError: true };
+      }
+    }
+  );
+
   server.tool(
     'recommend_cards',
     `PERSONALIZED credit card recommendations based on the user's actual spending pattern.
@@ -377,7 +395,7 @@ async function main() {
         sendJSON(res, 200, {
           status: 'ok',
           server: 'great-cards',
-          version: '1.3.0',
+          version: '1.4.0',
           auth_enabled: clientAuth.isEnabled,
           active_sessions: Object.keys(transports).length,
           api_base: process.env.PARTNER_BASE_URL || 'https://platform.bankkaro.com/partner',
@@ -500,7 +518,7 @@ async function main() {
           // GET without session — return server info (not an error)
           sendJSON(res, 200, {
             name: 'Great.Cards MCP Server',
-            version: '1.3.0',
+            version: '1.4.0',
             description: 'AI-powered credit card recommendations for the Indian market.',
             endpoints: {
               '/mcp': 'Streamable HTTP transport (POST to initialize, GET for SSE stream, DELETE to close) — for Claude custom connectors',
@@ -508,7 +526,7 @@ async function main() {
               '/mcp/messages': 'Legacy SSE message endpoint (POST)',
               '/mcp/health': 'Health check (GET)',
             },
-            tools: ['get_advisor_context', 'recommend_cards', 'get_card_details', 'list_cards', 'compare_cards', 'check_eligibility'],
+            tools: ['generate_content_brief', 'run_api_diagnostics', 'get_advisor_context', 'recommend_cards', 'get_card_details', 'list_cards', 'compare_cards', 'check_eligibility'],
             spending_keys: 21,
             brands_mapped: '700+',
           });
@@ -586,7 +604,7 @@ async function main() {
     });
 
     httpServer.listen(port, () => {
-      console.error(`[great-cards] MCP server v1.3.0 running at http://0.0.0.0:${port}`);
+      console.error(`[great-cards] MCP server v1.4.0 running at http://0.0.0.0:${port}`);
       console.error(`[great-cards] Auth: ${clientAuth.isEnabled ? 'ENABLED' : 'DISABLED (using default key)'}`);
       console.error(`[great-cards] Streamable HTTP: POST/GET/DELETE /mcp (for Claude connectors)`);
       console.error(`[great-cards] Legacy SSE: GET /mcp/sse + POST /mcp/messages`);

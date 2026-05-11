@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { CATEGORIES } from '../content/categories.js';
 import { apiClient, type SpendingData } from '../api/client.js';
 import { feeCalc } from '../enrichment/feeUtils.js';
+import { cache } from '../cache/cache.js';
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
@@ -22,7 +23,13 @@ export const contentBriefSchema = z.object({
     .describe('Spend composition to sweep e.g. "Amazon-heavy". Omit to sweep ALL compositions.'),
 
   spend_tiers: z.array(z.number()).optional()
-    .describe('Monthly ₹ spend tiers to sweep. Defaults to category preset.'),
+    .describe('Monthly ₹ spend tiers to sweep. In fast mode only one representative tier is used; use detail_level="standard" or "exhaustive" to evaluate every requested/preset tier.'),
+
+  detail_level: z.enum(['fast','standard','exhaustive']).optional().default('fast')
+    .describe('Controls latency and payload size. fast=default composition + 1 representative tier + no card profiles. standard=default composition + all category tiers + no card profiles. exhaustive=all compositions + all tiers + card profiles. Use exhaustive only when the user explicitly asks for deep research.'),
+
+  per_call_timeout_ms: z.number().optional()
+    .describe('Timeout for each backend calculation/detail request. Defaults: 6000ms fast, 8000ms standard, 10000ms exhaustive. Timed-out jobs return partial results instead of failing the whole tool.'),
 
   card_aliases: z.array(z.string()).min(2,{message:'Min 2'}).max(4,{message:'Max 4'}).optional()
     .describe('2-4 card aliases for card_comparison. Get from list_cards.'),
@@ -42,8 +49,10 @@ export const contentBriefSchema = z.object({
   card_alias: z.string().optional().describe('Card alias for fee_justification.'),
   bank_name: z.string().optional().describe('Bank name for bank_ranking e.g. "HDFC Bank".'),
 
-  top_n: z.number().optional().default(5),
-  include_details: z.boolean().optional().default(true),
+  top_n: z.number().optional()
+    .describe('Number of top cards per spend tier. Defaults: 3 for fast, 5 for standard/exhaustive. fast caps this at 3 to keep responses small.'),
+  include_details: z.boolean().optional()
+    .describe('Fetch detailed card profiles. Defaults false for fast/standard and true for exhaustive. Set true only when the next answer needs card-level fee/benefit deep dives.'),
 
   output_format: z.enum(['blog','carousel','reels','thread','linkedin']).optional()
     .describe('Output format. carousel=Instagram JSON, reels=voiceover script, thread=X thread, linkedin=LinkedIn post, blog=article.'),
@@ -76,37 +85,125 @@ export const contentBriefSchema = z.object({
 // ─── Main handler ────────────────────────────────────────────────────────────
 
 export async function generateContentBrief(input: z.infer<typeof contentBriefSchema>) {
+  const cacheKey = `contentBrief:${stableStringify(input)}`;
+  const cached = cache.get<any>(cacheKey);
+  if (cached) {
+    return {
+      ...cached,
+      cache: {
+        hit: true,
+        key: cacheKey.slice(0, 80),
+        note: 'Served from in-memory MCP cache.',
+      },
+    };
+  }
+
+  let result: any;
   switch (input.content_type) {
-    case 'category_best_cards':  return handleCategoryBestCards(input);
-    case 'card_comparison':      return handleCardComparison(input);
-    case 'persona_guide':        return handlePersonaGuide(input);
-    case 'upgrade_path':         return handleUpgradePath(input);
-    case 'fee_justification':    return handleFeeJustification(input);
-    case 'bank_ranking':         return handleBankRanking(input);
+    case 'category_best_cards':  result = await handleCategoryBestCards(input); break;
+    case 'card_comparison':      result = await handleCardComparison(input); break;
+    case 'persona_guide':        result = await handlePersonaGuide(input); break;
+    case 'upgrade_path':         result = await handleUpgradePath(input); break;
+    case 'fee_justification':    result = await handleFeeJustification(input); break;
+    case 'bank_ranking':         result = await handleBankRanking(input); break;
     default:
       return { error: `Unknown content_type: ${(input as any).content_type}` };
   }
+
+  if (!result?.error) {
+    const ttlMs = input.detail_level === 'exhaustive' ? 30 * 60 * 1000 : 10 * 60 * 1000;
+    cache.set(cacheKey, result, ttlMs);
+  }
+  return result;
 }
 
 // ─── Handler: category_best_cards ───────────────────────────────────────────
 
+type DetailLevel = 'fast' | 'standard' | 'exhaustive';
+
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+  const obj = value as Record<string, unknown>;
+  return `{${Object.keys(obj).sort().map(k => `${JSON.stringify(k)}:${stableStringify(obj[k])}`).join(',')}}`;
+}
+
+async function withTimeout<T>(label: string, timeoutMs: number, fn: () => Promise<T>): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      fn(),
+      new Promise<T>((_, reject) => {
+        timeout = setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
+function pickRepresentativeTiers(tiers: number[], maxCount = 1): number[] {
+  if (tiers.length <= maxCount) return tiers;
+  if (maxCount === 1) return [tiers[Math.floor(tiers.length / 2)]];
+  const first = tiers[0];
+  const middle = tiers[Math.floor(tiers.length / 2)];
+  const last = tiers[tiers.length - 1];
+  return Array.from(new Set([first, middle, last])).slice(0, maxCount);
+}
+
+function summarizeLayerPlan(detailLevel: DetailLevel, explicitComposition?: string) {
+  return {
+    current_layer: detailLevel,
+    latency_profile: detailLevel === 'fast'
+      ? 'fast first answer'
+      : detailLevel === 'standard'
+        ? 'deeper single-composition sweep'
+        : 'deep research payload',
+    next_layers: detailLevel === 'fast'
+      ? [
+          'Call again with detail_level="standard" to keep the same composition but test every preset spend tier.',
+          'Call again with detail_level="exhaustive" for all compositions, all tiers, and card profiles.',
+        ]
+      : detailLevel === 'standard'
+        ? ['Call again with detail_level="exhaustive" for all compositions and card profiles.']
+        : [],
+    note: explicitComposition
+      ? `Using requested composition: ${explicitComposition}.`
+      : 'No composition_label supplied. Fast/standard use the category default composition; exhaustive sweeps every composition.',
+  };
+}
+
 async function handleCategoryBestCards(input: z.infer<typeof contentBriefSchema>) {
-  const { category, composition_label, top_n = 5, include_details } = input;
+  const { category, composition_label } = input;
   if (!category) return { error: 'category is required for category_best_cards' };
 
   const config = CATEGORIES[category];
   if (!config) return { error: `No config for category: ${category}` };
 
+  const detailLevel = (input.detail_level || 'fast') as DetailLevel;
+  const top_n = detailLevel === 'fast'
+    ? Math.min(input.top_n ?? 3, 3)
+    : (input.top_n ?? 5);
+  const includeDetails = input.include_details ?? (detailLevel === 'exhaustive');
+  const perCallTimeoutMs = input.per_call_timeout_ms ?? (
+    detailLevel === 'fast' ? 6000 : detailLevel === 'standard' ? 8000 : 10000
+  );
+
   // Select compositions to sweep
   const compositionsToSweep = composition_label
     ? config.spend_compositions.filter(c => c.label === composition_label)
-    : config.spend_compositions;
+    : detailLevel === 'exhaustive'
+      ? config.spend_compositions
+      : config.spend_compositions.filter(c => c.label === config.default_composition);
 
   if (!compositionsToSweep.length) {
     return { error: `Composition "${composition_label}" not found. Available: ${config.spend_compositions.map(c => c.label).join(', ')}` };
   }
 
-  const spend_tiers = input.spend_tiers || config.spend_tiers;
+  const requestedSpendTiers = input.spend_tiers || config.spend_tiers;
+  const spend_tiers = detailLevel === 'fast'
+    ? pickRepresentativeTiers(requestedSpendTiers)
+    : requestedSpendTiers;
 
   // Get card universe
   const listResponse = await apiClient.getCardListing({ slug: config.mcp_category });
@@ -131,27 +228,42 @@ async function handleCategoryBestCards(input: z.infer<typeof contentBriefSchema>
 
   const jobResults = await Promise.all(
     allJobs.map(async ({ composition, tier, spendMap }) => {
-      const recResponse = await apiClient.calculateCardGenius(spendMap as SpendingData);
-      const savingsArray = Array.isArray(recResponse?.data?.savings) ? recResponse.data.savings : [];
-      const rankedCards = savingsArray
-        .map((s: any) => {
-          const annualFee = feeCalc(s.annual_fee_text || '0').withGST;
-          const rewards = s.total_savings_yearly || 0;
-          const milestones = s.total_extra_benefits || 0;
-          const netSavings = Math.round(rewards + milestones - annualFee);
-          return {
-            card_alias: s.seo_card_alias || s.card_alias,
-            card_name: s.card_name,
-            annual_rewards: rewards,
-            milestone_benefits: milestones,
-            annual_fee: annualFee,
-            net_savings: netSavings,
-          };
-        })
-        .filter((c: any) => c.card_alias && c.net_savings > -50000)
-        .sort((a: any, b: any) => b.net_savings - a.net_savings)
-        .slice(0, top_n);
-      return { composition, tier, spendMap, rankedCards };
+      try {
+        const recResponse = await withTimeout(
+          `calculate ${composition.label} ${tier}`,
+          perCallTimeoutMs,
+          () => apiClient.calculateCardGenius(spendMap as SpendingData)
+        );
+        const savingsArray = Array.isArray(recResponse?.data?.savings) ? recResponse.data.savings : [];
+        const rankedCards = savingsArray
+          .map((s: any) => {
+            const annualFee = feeCalc(s.annual_fee_text || '0').withGST;
+            const rewards = s.total_savings_yearly || 0;
+            const milestones = s.total_extra_benefits || 0;
+            const netSavings = Math.round(rewards + milestones - annualFee);
+            return {
+              card_alias: s.seo_card_alias || s.card_alias,
+              card_name: s.card_name,
+              annual_rewards: rewards,
+              milestone_benefits: milestones,
+              annual_fee: annualFee,
+              net_savings: netSavings,
+            };
+          })
+          .filter((c: any) => c.card_alias && c.net_savings > -50000)
+          .sort((a: any, b: any) => b.net_savings - a.net_savings)
+          .slice(0, top_n);
+        return { composition, tier, spendMap, rankedCards, status: 'ok' as const };
+      } catch (err: any) {
+        return {
+          composition,
+          tier,
+          spendMap,
+          rankedCards: [],
+          status: 'failed' as const,
+          error: (err?.message || String(err)).slice(0, 300),
+        };
+      }
     })
   );
 
@@ -160,12 +272,14 @@ async function handleCategoryBestCards(input: z.infer<typeof contentBriefSchema>
     const tier_results = jobResults
       .filter(r => r.composition.label === composition.label)
       .sort((a, b) => a.tier - b.tier)
-      .map(({ tier, spendMap, rankedCards }) => {
+      .map(({ tier, spendMap, rankedCards, status, error }) => {
         rankedCards.forEach((c: any) => unique_top_aliases.add(c.card_alias));
         return {
           spend_level: tier,
           spend_label: config.tier_labels[tier] || `₹${tier.toLocaleString('en-IN')}/mo`,
           params_used: spendMap,
+          status,
+          ...(error && { error }),
           top_cards: rankedCards,
         };
       });
@@ -196,14 +310,46 @@ async function handleCategoryBestCards(input: z.infer<typeof contentBriefSchema>
 
   // Fetch card details for unique top aliases
   const card_profiles: Record<string, any> = {};
-  if (include_details) {
-    await fetchCardProfiles(Array.from(unique_top_aliases), card_profiles, config.detail_fields);
+  const detailAliases = Array.from(unique_top_aliases);
+  const maxDetailProfiles = detailLevel === 'exhaustive' ? detailAliases.length : 6;
+  if (includeDetails) {
+    await fetchCardProfiles(detailAliases.slice(0, maxDetailProfiles), card_profiles, config.detail_fields, perCallTimeoutMs);
   }
+
+  const failedJobs = jobResults
+    .filter(r => r.status !== 'ok')
+    .map(r => ({
+      composition: r.composition.label,
+      spend_level: r.tier,
+      error: r.error,
+    }));
 
   return {
     content_type: 'category_best_cards',
     category,
     generated_at: new Date().toISOString(),
+    response_layer: summarizeLayerPlan(detailLevel, composition_label),
+    execution_scope: {
+      detail_level: detailLevel,
+      calculate_calls: allJobs.length,
+      compositions: compositionsToSweep.length,
+      spend_tiers: spend_tiers.length,
+      spend_tiers_requested: requestedSpendTiers.length,
+      partial_results: failedJobs.length > 0,
+      failed_calculate_calls: failedJobs.length,
+      per_call_timeout_ms: perCallTimeoutMs,
+      ...(detailLevel === 'fast' && requestedSpendTiers.length > spend_tiers.length && {
+        spend_tier_note: 'Fast layer uses one representative tier. Use detail_level="standard" for every requested/preset tier.',
+      }),
+      top_n,
+      include_details: includeDetails,
+      card_profiles_requested: includeDetails ? Math.min(detailAliases.length, maxDetailProfiles) : 0,
+      card_profiles_available_for_next_layer: detailAliases.length,
+      ...(includeDetails && detailAliases.length > maxDetailProfiles && {
+        detail_profile_note: `Returned ${maxDetailProfiles} of ${detailAliases.length} candidate profiles to keep this response small. Use detail_level="exhaustive" for all profiles.`,
+      }),
+    },
+    ...(failedJobs.length > 0 && { failed_jobs: failedJobs }),
     card_universe: { total: cards.length },
     category_context: config.context,
     compositions_swept: compositionsToSweep.map(c => ({ label: c.label, description: c.description })),
@@ -571,10 +717,10 @@ async function handleBankRanking(input: z.infer<typeof contentBriefSchema>) {
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
-async function fetchCardProfiles(aliases: string[], profiles: Record<string, any>, detailFields: string[]) {
+async function fetchCardProfiles(aliases: string[], profiles: Record<string, any>, detailFields: string[], timeoutMs = 8000) {
   await Promise.all(aliases.map(async (alias) => {
     try {
-      const res = await apiClient.getCardDetails(alias);
+      const res = await withTimeout(`details ${alias}`, timeoutMs, () => apiClient.getCardDetails(alias));
       const raw = res?.data;
       const card = Array.isArray(raw) ? raw[0] : raw;
       if (card) {
@@ -591,8 +737,8 @@ async function fetchCardProfiles(aliases: string[], profiles: Record<string, any
       } else {
         profiles[alias] = { error: 'Not found in card details API' };
       }
-    } catch {
-      profiles[alias] = { error: 'Failed to fetch details' };
+    } catch (err: any) {
+      profiles[alias] = { error: (err?.message || 'Failed to fetch details').slice(0, 300) };
     }
   }));
 }
@@ -789,6 +935,7 @@ function buildArticleInstructions(contentType: string, subject?: string, opts?: 
 
   const common = {
     formula_note: 'net_savings = annual_rewards + milestone_benefits - annual_fee. Joining fee is excluded (one-time Year 1 cost, not recurring).',
+    layering_note: 'Use this response as the first layer. If the user asks for more depth, call generate_content_brief again with detail_level="standard" or detail_level="exhaustive" instead of trying to infer missing data.',
     anti_hallucination: [
       'NEVER invent reward rates not present in the card data returned by this tool.',
       'NEVER claim a card is "free" unless annual_fee shows "Free".',
@@ -809,7 +956,7 @@ function buildArticleInstructions(contentType: string, subject?: string, opts?: 
       '2. Quick comparison table: top 3-4 cards with fee, top reward rate, and net savings/yr at mid-tier spend.',
       '3. Per-composition section: if multiple compositions, show "If you shop mostly on Amazon vs Flipkart" with the winner for each.',
       '4. Spend-tier table: net savings at each tier for the top 2 cards. Explain WHY one card overtakes another at the crossover point.',
-      '5. Card deep-dives: for each top card — fee, fee waiver, reward caps, best use case, 1-line verdict.',
+      '5. Card notes: use fees and net savings from top_cards. Only include fee waiver/reward caps when card_profiles are present; otherwise ask for detail_level="exhaustive" before deep-diving.',
       '6. Summary table + recommendation by persona.',
       '7. CTA: Apply via Great.Cards.',
     ],

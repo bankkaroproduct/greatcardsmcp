@@ -693,8 +693,9 @@ HOW:
      - "best HDFC cards" → content_type: "bank_ranking", bank_name: "HDFC"
      - "is Amex Platinum worth it" → content_type: "fee_justification", card_alias: "amex-platinum-credit-card"
      - "when should I upgrade from free card to paid" → content_type: "upgrade_path"
-  2. For category_best_cards: omit composition_label to sweep ALL compositions (recommended for articles).
-     For travel specifically: the tool sweeps flights-heavy, balanced, and hotels-heavy compositions automatically. No need to ask the user.
+  2. For category_best_cards: start with detail_level="fast" unless the user explicitly asks for a comprehensive/deep article.
+     Fast mode uses the default composition, 1 representative spend tier, top_n=3, and no card profiles so MCP clients do not time out.
+     Use detail_level="standard" for all preset tiers in one composition. Use detail_level="exhaustive" only when the user asks for all compositions + details.
   3. After receiving results: write the article using the _llm_instructions.article_structure in the response. Do NOT show raw JSON.
 
 TOOL: compare_cards

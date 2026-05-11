@@ -74,7 +74,11 @@ export function getAdvisorContext(input: z.infer<typeof advisorContextSchema>) {
           generate_content_brief: {
             when: 'User asks for "best X cards", "top travel/fuel/shopping cards", "write an article", "content ideas", "which cards are best for [category]", "carousel about", "blog post about", or ANY editorial/research question about cards — even casually phrased.',
             rule: 'NEVER answer category or content questions from training knowledge. ALWAYS call generate_content_brief.',
-            params: 'content_type (category_best_cards | card_comparison | persona_guide | upgrade_path | fee_justification | bank_ranking) + category or card_aliases as needed. Optional: output_format (blog|carousel|reels|thread|linkedin), audience, goal, hook, tone.',
+            params: 'content_type (category_best_cards | card_comparison | persona_guide | upgrade_path | fee_justification | bank_ranking) + category or card_aliases as needed. Default detail_level="fast"; use "standard" or "exhaustive" only when the user asks for deeper research. Optional: output_format (blog|carousel|reels|thread|linkedin), audience, goal, hook, tone.',
+          },
+          run_api_diagnostics: {
+            when: 'Use for API QA, deployment checks, schema drift, latency debugging, or when an MCP/API call seems flaky.',
+            params: 'scope="quick" for core checks; scope="full" for category listing and eligibility too. include_samples=true when debugging response shape.',
           },
         },
       },
@@ -103,6 +107,7 @@ export function getAdvisorContext(input: z.infer<typeof advisorContextSchema>) {
       ],
       other_tools_available: {
         generate_content_brief: 'Call for ANY content/editorial request — "best X cards", "write article", "content ideas", "carousel about X", "top cards for Y". NEVER answer from training knowledge.',
+        run_api_diagnostics: 'Call when testing API health, diagnosing flaky MCP behavior, or validating deployments.',
       },
     },
   };
