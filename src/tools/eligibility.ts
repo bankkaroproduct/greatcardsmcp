@@ -30,11 +30,20 @@ export async function checkEligibility(input: z.infer<typeof checkEligibilitySch
 
       return {
         name: card.card_name || card.name,
-        bank: card.banks?.[0]?.name || card.bank_name || '',
+        bank: card.banks?.name || card.banks?.[0]?.name || card.bank_name || '',
         joining_fee: joining.inline,
         annual_fee: annual.inline,
+        rating: card.rating ?? null,
+        invite_only: card.invite_only ?? false,
+        employment_type: card.employment_type || 'both',
+        new_to_credit: card.new_to_credit ?? false,
+        key_benefits: (card.product_usps || [])
+          .sort((a: any, b: any) => (a.priority || 99) - (b.priority || 99))
+          .slice(0, 3)
+          .map((u: any) => (u.header || '').trim()),
         tags: (card.tags || []).map((t: any) => t.name),
         card_alias: card.seo_card_alias,
+        image: card.card_bg_image || card.image || null,
       };
     }),
   };

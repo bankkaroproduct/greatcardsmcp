@@ -44,7 +44,7 @@ export async function listCards(input: z.infer<typeof listCardsSchema>) {
       showing: Math.min(cards.length, limit),
       cards: cards.slice(0, limit).map((card: any) => ({
         name: card.card_name || card.name,
-        bank: card.banks?.[0]?.name || card.bank_name || '',
+        bank: card.banks?.name || card.banks?.[0]?.name || card.bank_name || '',
         joining_fee: feeCalc(card.joining_fee_text).inline,
         annual_fee: feeCalc(card.annual_fee_text).inline,
         card_alias: card.seo_card_alias,
@@ -61,11 +61,15 @@ export async function listCards(input: z.infer<typeof listCardsSchema>) {
 
       return {
         name: card.card_name || card.name,
-        bank: card.banks?.[0]?.name || card.bank_name || '',
+        bank: card.banks?.name || card.banks?.[0]?.name || card.bank_name || '',
         card_type: card.card_type,
+        card_network: card.card_network || card.network || null,
         joining_fee: joining.inline,
         annual_fee: annual.inline,
         rating: card.rating,
+        invite_only: card.invite_only ?? false,
+        employment_type: card.employment_type || 'both',
+        new_to_credit: card.new_to_credit ?? false,
         tags: (card.tags || []).map((t: any) => t.name),
         key_benefits: (card.product_usps || []).slice(0, 3).map((u: any) => u.header),
         card_alias: card.seo_card_alias,

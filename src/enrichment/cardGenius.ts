@@ -160,7 +160,7 @@ export async function enrichCardGeniusResults({
               : {}),
           image: cardDetails?.image || saving?.card_bg_image,
           banks: cardDetails?.banks || saving?.banks,
-          bank_name: cardDetails?.banks?.[0]?.name || cardDetails?.bank_name || saving?.bank_name || '',
+          bank_name: cardDetails?.banks?.name || cardDetails?.banks?.[0]?.name || cardDetails?.bank_name || saving?.bank_name || '',
           rating: cardDetails?.rating || saving?.rating || '',
           network_url: cardDetails?.network_url || saving?.network_url,
           card_type: cardDetails?.card_type || saving?.card_type,

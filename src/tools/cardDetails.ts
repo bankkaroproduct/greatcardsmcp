@@ -46,16 +46,26 @@ export async function getCardDetails(input: z.infer<typeof cardDetailsSchema>) {
 
   return {
     name: card.card_name || card.name,
+    nick_name: naToNull(card.nick_name),
     bank: card.banks?.name || card.banks?.[0]?.name || card.bank_name || '',
     bank_id: card.bank_id || null,
     card_type: card.card_type,
+    card_network: card.card_network || card.network || null,
     rating: card.rating,
     user_ratings: card.user_rating_count,
     image: card.card_bg_image || card.image,
+    priority_tag: naToNull(card.priority_tag_text),
+
+    invite_only: card.invite_only ?? false,
+    employment_type: card.employment_type || 'both',
+    new_to_credit: card.new_to_credit ?? false,
+    existing_customer_only: card.existing_customer ?? false,
 
     fees: {
       joining: joining.inline,
+      joining_note: naToNull(card.joining_fee_comment),
       annual: annual.inline,
+      annual_note: naToNull(card.annual_fee_comment),
       annual_fee_waiver: naToNull(card.annual_fee_waiver),
       gst_note: 'All fees include 18% GST.',
     },
@@ -88,7 +98,20 @@ export async function getCardDetails(input: z.infer<typeof cardDetailsSchema>) {
       redemption_options: stripHtml(card.redemption_options) || null,
       redemption_catalogue: naToNull(card.redemption_catalogue),
       exclusions: naToNull(card.exclusion_earnings),
+      exclusion_spends: naToNull(card.exclusion_spends),
     },
+
+    welcome_benefits: naToNull(card.welcome_text),
+    lounge_summary: naToNull(card.lounge_text),
+    annual_saving_claimed: card.annual_saving ? parseInt(card.annual_saving) : null,
+
+    milestone_benefits: Array.isArray(card.milestone_benefits) && card.milestone_benefits.length
+      ? card.milestone_benefits.map((m: any) => ({
+          spend_target: m.spend_target || m.spendTarget || null,
+          reward: m.reward || m.benefit || null,
+          description: m.description || null,
+        }))
+      : null,
 
     key_benefits: (card.product_usps || [])
       .sort((a: any, b: any) => (a.priority || 99) - (b.priority || 99))

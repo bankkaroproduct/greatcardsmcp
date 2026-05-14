@@ -96,6 +96,15 @@ export async function recommendCards(input: z.infer<typeof recommendCardsSchema>
       joining_fee: card.joining_fees === 0 ? 'Free' : `₹${card.joining_fees.toLocaleString('en-IN')} (incl. GST)`,
       annual_fee: card.annual_fees === 0 ? 'Free' : `₹${card.annual_fees!.toLocaleString('en-IN')} (incl. GST)`,
       welcome_benefits: card.welcome_benefits,
+      voucher: (card.voucher_of && Number(card.voucher_of) > 0)
+        ? { value: `₹${Number(card.voucher_of).toLocaleString('en-IN')}`, bonus: card.voucher_bonus || null }
+        : null,
+      lounge_access: {
+        domestic_per_quarter: card.domestic_lounges_unlocked || 0,
+        international_per_quarter: card.international_lounges_unlocked || 0,
+        domestic_value_used: `₹${(card.domestic_lounge_value || 0).toLocaleString('en-IN')}`,
+        international_value_used: `₹${(card.international_lounge_value || 0).toLocaleString('en-IN')}`,
+      },
       top_spend_categories: card.spending_breakdown
         ? Object.entries(card.spending_breakdown as Record<string, any>)
             .map(([cat, v]) => ({ category: cat, annual_value: typeof v === 'number' ? v : (v?.savings ?? 0) }))
